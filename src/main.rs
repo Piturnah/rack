@@ -95,7 +95,7 @@ main:\n",
         + "mov rax, 60
 mov rdi, 0
 syscall";
-    fs::write("../out.asm", &outbuf).expect("Unable to write to out.asm");
+    fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
 }
 
 fn usage() {
