@@ -111,14 +111,12 @@ main:\n",
                     )
             }
             Op::Plus => {
-                outbuf
-                    + &format!("  ;; Op::Plus\n  pop rax\n  pop rbx\n  add rax, rbx\n  push rax\n")
+                outbuf + "  ;; Op::Plus\n  pop rax\n  pop rbx\n  add rax, rbx\n  push rax\n"
             }
             Op::Minus => {
-                outbuf
-                    + &format!("  ;; Op::Minus\n  pop rbx\n  pop rax\n  sub rax, rbx\n  push rax\n")
+                outbuf + "  ;; Op::Minus\n  pop rbx\n  pop rax\n  sub rax, rbx\n  push rax\n"
             }
-            Op::Print => outbuf + &format!("  ;; Op::Print\n  pop rdi\n  call print\n"),
+            Op::Print => outbuf + "  ;; Op::Print\n  pop rdi\n  call print\n",
         };
     }
 
