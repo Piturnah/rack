@@ -1,4 +1,19 @@
-use std::{env, fs, process};
+use clap::Parser;
+use std::{
+    fs,
+    process::{self, Stdio},
+};
+
+#[derive(Parser)]
+struct Config {
+    /// Run the program after successful compilation
+    #[clap(short, long)]
+    run: bool,
+
+    /// Input file
+    #[clap()]
+    file: String,
+}
 
 #[derive(Debug)]
 enum Op {
@@ -11,35 +26,30 @@ enum Op {
 fn parse_program(source: &str) -> Vec<Op> {
     let mut program: Vec<Op> = Vec::new();
     'lines: for line in source.split("\n") {
-       for word in line.split(" ") {
-           if let Ok(val) = word.parse::<u64>() {
-               program.push(Op::PushInt(val));
-           } else {
-               match word {
-                   "+" => program.push(Op::Plus),
-                   "-" => program.push(Op::Minus),
-                   "print" => program.push(Op::Print),
-                   "//" => continue 'lines,
-                   _ => {
-                       eprintln!("Unknown word `{}` in program source", word);
-                       process::exit(1);
-                   }
-               }
-           }
-       }
+        for word in line.split(" ") {
+            if let Ok(val) = word.parse::<u64>() {
+                program.push(Op::PushInt(val));
+            } else {
+                match word {
+                    "+" => program.push(Op::Plus),
+                    "-" => program.push(Op::Minus),
+                    "print" => program.push(Op::Print),
+                    "//" => continue 'lines,
+                    _ => {
+                        eprintln!("Unknown word `{}` in program source", word);
+                        process::exit(1);
+                    }
+                }
+            }
+        }
     }
     program
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("No target file provided.");
-        usage();
-        process::exit(1);
-    }
+    let config = Config::parse();
 
-    let source_f = &args[1];
+    let source_f = &config.file;
     let source = match fs::read_to_string(source_f) {
         Ok(source) => source,
         Err(_) => {
@@ -116,10 +126,21 @@ main:\n",
         + "  mov rax, 60
   mov rdi, 0
   syscall";
-    fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
-}
 
-fn usage() {
-    let args: Vec<String> = env::args().collect();
-    println!("Usage: {} <filename>", args[0]);
+    println!("[INFO] Generating `out.asm`");
+    fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
+
+    println!("[INFO] Running `fasm out.asm`");
+    process::Command::new("fasm")
+        .args(["out.asm"])
+        .output()
+        .expect("Unable to generate executable");
+
+    if config.run {
+        println!("[INFO] Running `./out`");
+        process::Command::new("./out")
+            .stdout(Stdio::inherit())
+            .output()
+            .expect("Couldn't run `./out`");
+    }
 }
