@@ -2,16 +2,28 @@
 
 This is a Rust implementation of some of the most basic features of the [stack-based](https://en.wikipedia.org/wiki/Stack-oriented_programming), [concatenative](https://en.wikipedia.org/wiki/Concatenative_programming_language) programming language [Porth](https://gitlab.com/tsoding/porth) created by Tsoding/Rexim. The documented development of the original Porth can be found [here](https://www.youtube.com/playlist?list=PLpM-Dvs8t0VbMZA7wW9aR3EtBqe2kinu4).
 
+## Usage
+
+```console
+USAGE:
+    compiler [OPTIONS] <FILE>
+
+ARGS:
+    <FILE>    Input file
+
+OPTIONS:
+    -h, --help    Print help information
+    -r, --run     Run the program after successful compilation
+```
+
 ## Example Usage
 
 The file provided will be compiled into x86-64 fasm which will be written to `./out.asm` and can then be compiled to an executable binary with [fasm](https://flatassembler.net/)
 
 ```console
-$ cargo run -- main.porth
-$ fasm out.asm
-$ chmod +x out
-$ ./out
-9
+$ cargo run -- -r main.porth
+19
+1
 ```
 
 ## Features
@@ -22,6 +34,7 @@ Only a very limited number of very basic features are implemented, namely:
 - Plus
 - Minus
 - Print
+- Comments
 
 See `./main.porth` for an example program.
 
