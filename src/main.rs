@@ -88,6 +88,8 @@ fn parse_program(source: &str) -> Vec<Op> {
                         program.push(Op::End(jmp_count));
                         jmp_count += 1;
                     }
+		    "true" => program.push(Op::PushInt(1)),
+		    "false" => program.push(Op::PushInt(0)),
                     "print" => program.push(Op::Print),
                     "//" => continue 'lines,
                     "" => {}

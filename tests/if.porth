@@ -4,8 +4,12 @@
 50 8 - 42 = if
   42 print
 
-  10 10 = if
-    11 print
+  true if
+     11 print
+
+     false if
+       5 print
+     end
   end
 
   8 2 = if
