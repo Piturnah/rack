@@ -190,16 +190,29 @@ F{}:
     fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
 
     println!("[INFO] Running `fasm out.asm`");
-    process::Command::new("fasm")
+    match process::Command::new("fasm")
         .args(["out.asm"])
+        .stdout(Stdio::inherit())
         .output()
-        .expect("Unable to generate executable");
+    {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("[ERROR] {}", e);
+            process::exit(1);
+        }
+    };
 
     if config.run {
         println!("[INFO] Running `./out`");
-        process::Command::new("./out")
+        match process::Command::new("./out")
             .stdout(Stdio::inherit())
             .output()
-            .expect("Couldn't run `./out`");
+        {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("[ERROR] {}", e);
+                process::exit(1)
+            }
+        }
     }
 }
