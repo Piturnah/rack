@@ -5,11 +5,11 @@
   42 print
 
   true if
-     11 print
-
      false if
        5 print
      end
+
+     11 print
   end
 
   8 2 = if
