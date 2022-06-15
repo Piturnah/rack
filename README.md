@@ -21,9 +21,9 @@ OPTIONS:
 The file provided will be compiled into x86-64 fasm which will be written to `./out.asm` and can then be compiled to an executable binary with [fasm](https://flatassembler.net/)
 
 ```console
-$ cargo run -- -r main.porth
-19
-1
+$ cargo run -- -r tests/if.porth
+42
+11
 ```
 
 ## Features
@@ -33,6 +33,8 @@ Only a very limited number of very basic features are implemented, namely:
 - PushInt
 - Plus
 - Minus
+- If
+- Equals
 - Print
 - Comments
 
