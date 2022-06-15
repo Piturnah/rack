@@ -1,0 +1,15 @@
+// program should print 42 and 11
+// but not 100
+
+50 8 - 42 = if
+  42 print
+
+  10 10 = if
+    11 print
+  end
+
+  8 2 = if
+    100 print
+  end
+
+end
