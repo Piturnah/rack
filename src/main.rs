@@ -58,15 +58,19 @@ enum Op {
     PushInt(u64),
     Plus,
     Minus,
+    Dup,
     Equals,
+    GreaterThan,
+    Or,
+    And,
     If(Option<usize>),
-    End(usize),
+    End(Box<Op>),
     Print,
 }
 
 fn parse_program(source: &str) -> Vec<Op> {
     let mut program: Vec<Op> = Vec::new();
-    let mut if_ret_stack: Vec<usize> = Vec::new();
+    let mut ret_stack: Vec<usize> = Vec::new();
     let mut jmp_count = 0;
 
     'lines: for line in source.split("\n") {
@@ -77,24 +81,33 @@ fn parse_program(source: &str) -> Vec<Op> {
                 match word {
                     "+" => program.push(Op::Plus),
                     "-" => program.push(Op::Minus),
+                    "dup" => program.push(Op::Dup),
                     "=" => program.push(Op::Equals),
+                    ">" => program.push(Op::GreaterThan),
+                    "or" => program.push(Op::Or),
+                    "and" => program.push(Op::And),
                     "if" => {
-                        if_ret_stack.push(program.len());
+                        ret_stack.push(program.len());
                         program.push(Op::If(None));
                     }
                     "end" => {
-                        let index = if_ret_stack.pop().expect("Empty return stack");
-                        program[index] = Op::If(Some(jmp_count));
-                        program.push(Op::End(jmp_count));
+                        let index = ret_stack.pop().expect("Empty return stack");
+                        match program[index] {
+                            Op::If(None) => {
+                                program[index] = Op::If(Some(jmp_count));
+                                program.push(Op::End(Box::new(Op::If(Some(jmp_count)))));
+                            }
+                            _ => unreachable!(),
+                        };
                         jmp_count += 1;
                     }
-		    "true" => program.push(Op::PushInt(1)),
-		    "false" => program.push(Op::PushInt(0)),
+                    "true" => program.push(Op::PushInt(1)),
+                    "false" => program.push(Op::PushInt(0)),
                     "print" => program.push(Op::Print),
                     "//" => continue 'lines,
                     "" => {}
                     _ => {
-                        eprintln!("Unknown word `{}` in program source", word);
+                        eprintln!("[ERROR] Unknown word `{}` in program source", word);
                         process::exit(1);
                     }
                 }
@@ -136,6 +149,14 @@ fn main() {
                 outbuf =
                     outbuf + "  ;; Op::Minus\n  pop rbx\n  pop rax\n  sub rax, rbx\n  push rax\n";
             }
+            Op::Dup => {
+                outbuf = outbuf
+                    + "  ;; Op::Dup
+  pop rax
+  push rax
+  push rax
+"
+            }
             Op::Equals => {
                 outbuf = outbuf
                     + &format!(
@@ -148,6 +169,67 @@ fn main() {
   jmp J{1}
 J{0}:
   push 1
+J{1}:
+",
+                        jump_target_count,
+                        jump_target_count + 1
+                    );
+                jump_target_count += 2;
+            }
+            Op::GreaterThan => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::GreaterThan
+  pop rax
+  pop rbx
+  cmp rax, rbx
+  jb J{0}
+  push 0
+  jmp J{1}
+J{0}:
+  push 1
+J{1}:
+",
+                        jump_target_count,
+                        jump_target_count + 1
+                    );
+                jump_target_count += 2;
+            }
+            Op::Or => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::Or
+  pop rax
+  pop rbx
+  cmp rax, 1
+  je J{0}
+  cmp rbx, 1
+  je J{0}
+  push 0
+  jmp J{1}
+J{0}:
+  push 1
+J{1}:
+",
+                        jump_target_count,
+                        jump_target_count + 1
+                    );
+                jump_target_count += 2;
+            }
+            Op::And => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::And
+  pop rax
+  pop rbx
+  cmp rax, rbx
+  jne J{0}
+  cmp rax, 1
+  jne J{0}
+  push 1
+  jmp J{1}
+J{0}:
+  push 0
 J{1}:
 ",
                         jump_target_count,
@@ -170,15 +252,31 @@ J{1}:
                 eprintln!("No closing `end` for `if` keyword");
                 process::exit(1);
             }
-            Op::End(id) => {
-                outbuf = outbuf
-                    + &format!(
-                        "  ;; Op::End
+            Op::End(op) => match *op {
+                Op::If(Some(id)) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::End
 F{}:
 ",
-                        id
-                    );
-            }
+                            id
+                        );
+                }
+                Op::If(None) => unreachable!(),
+                Op::Dup
+                | Op::Equals
+                | Op::GreaterThan
+                | Op::Minus
+                | Op::Plus
+                | Op::Print
+                | Op::PushInt(_)
+                | Op::Or
+                | Op::And
+                | Op::End(_) => {
+                    eprintln!("[ERROR] End block cannot close `{:?}`", op);
+                    process::exit(1);
+                }
+            },
             Op::Print => outbuf = outbuf + "  ;; Op::Print\n  pop rdi\n  call print\n",
         };
     }
@@ -213,7 +311,7 @@ F{}:
             Ok(_) => {}
             Err(e) => {
                 eprintln!("[ERROR] {}", e);
-                process::exit(1)
+                process::exit(1);
             }
         }
     }

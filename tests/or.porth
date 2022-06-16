@@ -1,0 +1,15 @@
+true false or if
+  1 print
+end
+
+false true or if
+  1 print
+end
+
+true true or if
+  1 print
+end
+
+false false or if
+  0 print
+end
