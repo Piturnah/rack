@@ -50,6 +50,7 @@ pub enum Op {
     Or,
     And,
     If(Option<usize>),
+    While(Option<Box<Op>>),
     End(Box<Op>),
     Print,
 }
@@ -77,16 +78,41 @@ pub fn parse_program(source: &str) -> Vec<Op> {
                         ret_stack.push(program.len());
                         program.push(Op::If(None));
                     }
+                    "while" => {
+                        ret_stack.push(program.len());
+                        program.push(Op::While(None));
+                    }
+                    "do" => {
+                        let index = *ret_stack
+                            .get(ret_stack.len() - 1)
+                            .expect("Empty return stack");
+                        match program[index] {
+                            Op::While(None) => {
+                                program[index] = Op::While(Some(Box::new(Op::If(Some(jmp_count)))));
+                                program.push(Op::If(Some(jmp_count)));
+                                jmp_count += 2;
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
                     "end" => {
                         let index = ret_stack.pop().expect("Empty return stack");
-                        match program[index] {
+                        match &program[index] {
                             Op::If(None) => {
                                 program[index] = Op::If(Some(jmp_count));
                                 program.push(Op::End(Box::new(Op::If(Some(jmp_count)))));
+                                jmp_count += 1;
                             }
+                            Op::While(Some(op)) => match **op {
+                                Op::If(Some(id)) => {
+                                    program.push(Op::End(Box::new(Op::While(Some(Box::new(
+                                        Op::If(Some(id)),
+                                    ))))));
+                                }
+                                _ => unreachable!(),
+                            },
                             _ => unreachable!(),
                         };
-                        jmp_count += 1;
                     }
                     "true" => program.push(Op::PushInt(1)),
                     "false" => program.push(Op::PushInt(0)),
@@ -241,20 +267,51 @@ J{1}:
                     )
             }
             Op::If(None) => {
-                eprintln!("No closing `end` for `if` keyword");
+                eprintln!("[ERROR] No closing `end` for `if` keyword");
+                process::exit(1);
+            }
+            Op::While(Some(op)) => match *op {
+                Op::If(Some(id)) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::While
+F{}:
+",
+                            id + 1
+                        )
+                }
+                _ => unreachable!(),
+            },
+            Op::While(None) => {
+                eprintln!("[ERROR] No closing `do` for `while` keyword");
                 process::exit(1);
             }
             Op::End(op) => match *op {
                 Op::If(Some(id)) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::End
+                            "  ;; Op::End(If)
 F{}:
 ",
                             id
                         );
                 }
                 Op::If(None) => unreachable!(),
+                Op::While(Some(op)) => match *op {
+                    Op::If(Some(id)) => {
+                        outbuf = outbuf
+                            + &format!(
+                                " ;; Op::End(While)
+  jmp F{}
+F{}:
+",
+                                id + 1,
+                                id
+                            )
+                    }
+                    _ => unreachable!(),
+                },
+                Op::While(None) => unreachable!(),
                 Op::Dup
                 | Op::Equals
                 | Op::GreaterThan

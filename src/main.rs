@@ -1,9 +1,9 @@
 use clap::Parser;
+use compiler::*;
 use std::{
     fs,
     process::{self, Stdio},
 };
-use compiler::*;
 
 #[derive(Parser)]
 struct Config {
