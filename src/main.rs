@@ -61,6 +61,7 @@ enum Op {
     Dup,
     Equals,
     GreaterThan,
+    LessThan,
     Or,
     And,
     If(Option<usize>),
@@ -84,6 +85,7 @@ fn parse_program(source: &str) -> Vec<Op> {
                     "dup" => program.push(Op::Dup),
                     "=" => program.push(Op::Equals),
                     ">" => program.push(Op::GreaterThan),
+                    "<" => program.push(Op::LessThan),
                     "or" => program.push(Op::Or),
                     "and" => program.push(Op::And),
                     "if" => {
@@ -195,6 +197,25 @@ J{1}:
                     );
                 jump_target_count += 2;
             }
+            Op::LessThan => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::GreaterThan
+  pop rax
+  pop rbx
+  cmp rbx, rax
+  jb J{0}
+  push 0
+  jmp J{1}
+J{0}:
+  push 1
+J{1}:
+",
+                        jump_target_count,
+                        jump_target_count + 1
+                    );
+                jump_target_count += 2;
+            }
             Op::Or => {
                 outbuf = outbuf
                     + &format!(
@@ -266,6 +287,7 @@ F{}:
                 Op::Dup
                 | Op::Equals
                 | Op::GreaterThan
+                | Op::LessThan
                 | Op::Minus
                 | Op::Plus
                 | Op::Print
