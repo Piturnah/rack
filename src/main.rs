@@ -200,7 +200,7 @@ J{1}:
             Op::LessThan => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::GreaterThan
+                        "  ;; Op::LessThan
   pop rax
   pop rbx
   cmp rbx, rax
