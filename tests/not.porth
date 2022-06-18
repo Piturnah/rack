@@ -1,0 +1,4 @@
+// `not` acts as boolean inverter. Should get `0 1`.
+
+true not print
+false not print

@@ -46,6 +46,7 @@ pub enum Op {
     Dup,
     Drop,
     Equals,
+    Neq,
     GreaterThan,
     LessThan,
     Or,
@@ -72,6 +73,11 @@ pub fn parse_program(source: &str) -> Vec<Op> {
                     "dup" => program.push(Op::Dup),
                     "drop" => program.push(Op::Drop),
                     "=" => program.push(Op::Equals),
+                    "!=" => program.push(Op::Neq),
+                    "not" => {
+                        program.push(Op::PushInt(1));
+                        program.push(Op::Neq);
+                    }
                     ">" => program.push(Op::GreaterThan),
                     "<" => program.push(Op::LessThan),
                     "or" => program.push(Op::Or),
@@ -172,6 +178,25 @@ pub fn generate_fasm_x86_64(program: Vec<Op>) -> String {
   pop rbx
   cmp rax, rbx
   je J{0}
+  push 0
+  jmp J{1}
+J{0}:
+  push 1
+J{1}:
+",
+                        jump_target_count,
+                        jump_target_count + 1
+                    );
+                jump_target_count += 2;
+            }
+            Op::Neq => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::Neq
+  pop rax
+  pop rbx
+  cmp rax, rbx
+  jne J{0}
   push 0
   jmp J{1}
 J{0}:
@@ -323,6 +348,7 @@ F{}:
                 Op::Dup
                 | Op::Drop
                 | Op::Equals
+                | Op::Neq
                 | Op::GreaterThan
                 | Op::LessThan
                 | Op::Minus
