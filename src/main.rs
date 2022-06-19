@@ -35,43 +35,28 @@ fn main() {
     let outbuf = generate_fasm_x86_64(program);
     fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
 
-    println!("[INFO] Running `fasm out.asm`");
-    match process::Command::new("fasm")
-        .args(["out.asm"])
-        .stdout(Stdio::inherit())
-        .output()
-    {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("[ERROR] {}", e);
-            process::exit(1);
-        }
-    };
+    run_command("fasm out.asm");
 
-    println!("[INFO] Running `chmod +x out`");
-    match process::Command::new("chmod")
-        .args(["+x", "out"])
-        .stdout(Stdio::inherit())
-        .output()
-    {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("[ERROR] {}", e);
-            process::exit(1);
-        }
-    };
+    run_command("chmod +x out");
 
     if config.run {
-        println!("[INFO] Running `./out`");
-        match process::Command::new("./out")
-            .stdout(Stdio::inherit())
-            .output()
-        {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("[ERROR] {}", e);
-                process::exit(1);
-            }
-        }
+        run_command("./out");
     }
+}
+
+fn run_command(cmd: &str) {
+    println!("[INFO] Running `{}`", cmd);
+    let mut cmd = cmd.split_whitespace();
+
+    match process::Command::new(cmd.next().expect("No command provided"))
+        .args(cmd.collect::<Vec<&str>>())
+        .stdout(Stdio::inherit())
+        .output()
+    {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("[ERROR] {}", e);
+            process::exit(1);
+        }
+    };
 }
