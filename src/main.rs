@@ -48,6 +48,19 @@ fn main() {
         }
     };
 
+    println!("[INFO] Running `chmod +x out`");
+    match process::Command::new("chmod")
+        .args(["+x", "out"])
+        .stdout(Stdio::inherit())
+        .output()
+    {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("[ERROR] {}", e);
+            process::exit(1);
+        }
+    };
+
     if config.run {
         println!("[INFO] Running `./out`");
         match process::Command::new("./out")
