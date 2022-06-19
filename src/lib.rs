@@ -167,7 +167,7 @@ pub fn generate_fasm_x86_64(program: Vec<Op>) -> String {
             Op::Drop => {
                 outbuf = outbuf
                     + "  ;; Op::Drop
-  pop rax
+  add rsp, 8
 "
             }
             Op::Equals => {
