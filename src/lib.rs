@@ -94,7 +94,7 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
     let mut ret_stack: Vec<usize> = Vec::new();
     let mut jmp_count = 0;
 
-    'lines: for (row, line) in source.split("\n").enumerate() {
+    'lines: for (row, line) in source.split('\n').enumerate() {
         // I think this implementation of getting the col of each word is kind of ugly
         // Because it involves a lot of allocations which *should* be unecessary.
         // TODO: Better implementation without allocations
@@ -128,7 +128,7 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
 
             if let Ok(val) = word.parse::<u64>() {
                 push!(Op::PushInt(val));
-            } else if word.starts_with("0x") {
+            } else if let Some(word) = word.strip_prefix("0x") {
                 push!(Op::PushInt(match u64::from_str_radix(&word[2..], 16) {
                     Ok(val) => val,
                     Err(e) => {
