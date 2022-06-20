@@ -119,7 +119,7 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
         }
 
         for (col, word) in ws {
-            let loc = Loc::new(path, row + 1, col);
+            let loc = Loc::new(path, row + 1, col + 1);
             macro_rules! push {
                 ($op:expr) => {
                     program.push(Token::new($op, loc))
