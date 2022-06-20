@@ -129,15 +129,13 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
             if let Ok(val) = word.parse::<u64>() {
                 push!(Op::PushInt(val));
             } else if word.starts_with("0x") {
-                push!(Op::PushInt(
-                    match u64::from_str_radix(&word[2..], 16) {
-                        Ok(v) => v,
-                        Err(_) => {
-                            eprintln!("{}: Expected valid hex literal", loc);
-                            process::exit(1);
-                        }
+                push!(Op::PushInt(match u64::from_str_radix(&word[2..], 16) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{loc}: Could not parse hex literal: {e}.");
+                        process::exit(1);
                     }
-                ));
+                }));
             } else {
                 match &word[..] {
                     "+" => push!(Op::Plus),
@@ -230,7 +228,8 @@ pub fn generate_fasm_x86_64(program: Vec<Token<'_>>) -> String {
                 outbuf = outbuf
                     + &format!(
                         "  ;; Op::PushInt({0}) - {1}
-  push {0}
+  mov rax, {0}
+  push rax
 ",
                         val, loc
                     );
