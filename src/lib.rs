@@ -78,6 +78,7 @@ pub enum Op {
     Swap,
     Equals,
     Neq,
+    Not,
     GreaterThan,
     LessThan,
     Or,
@@ -136,10 +137,7 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
                     "swap" => push!(Op::Swap),
                     "=" => push!(Op::Equals),
                     "!=" => push!(Op::Neq),
-                    "not" => {
-                        push!(Op::PushInt(1));
-                        push!(Op::Neq);
-                    }
+                    "not" => push!(Op::Not),
                     ">" => push!(Op::GreaterThan),
                     "<" => push!(Op::LessThan),
                     "or" => push!(Op::Or),
@@ -321,6 +319,17 @@ J{1}:
                     );
                 jump_target_count += 2;
             }
+            Op::Not => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::Not - {loc}
+  pop rax
+  mov rbx, 1
+  sub rbx, rax
+  push rbx
+"
+                    )
+            }
             Op::GreaterThan => {
                 outbuf = outbuf
                     + &format!(
@@ -464,6 +473,7 @@ F{}:
                 | Op::Equals
                 | Op::Swap
                 | Op::Neq
+                | Op::Not
                 | Op::GreaterThan
                 | Op::LessThan
                 | Op::Minus
