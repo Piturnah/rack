@@ -28,7 +28,7 @@ fn main() {
         }
     };
 
-    let program = parse_program(&source);
+    let program = parse_program(&source, &config.file);
 
     println!("[INFO] Generating `out.asm`");
 

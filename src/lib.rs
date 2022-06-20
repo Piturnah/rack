@@ -1,4 +1,4 @@
-use std::process;
+use std::{fmt, process};
 
 const ASM_HEADER: &str = "format ELF64 executable 3
 entry main
@@ -38,6 +38,36 @@ print:
   ret
 main:\n";
 
+pub struct Token<'l> {
+    op: Op,
+    loc: Loc<'l>,
+}
+
+impl<'l> Token<'l> {
+    fn new(op: Op, loc: Loc<'l>) -> Self {
+        Token { op, loc }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Loc<'a> {
+    file: &'a str,
+    row: usize,
+    col: usize,
+}
+
+impl<'a> Loc<'a> {
+    fn new(file: &'a str, row: usize, col: usize) -> Self {
+        Loc { file, row, col }
+    }
+}
+
+impl fmt::Display for Loc<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}:{}:{}", self.file, self.row, self.col)
+    }
+}
+
 #[derive(Debug)]
 pub enum Op {
     PushInt(u64),
@@ -57,78 +87,119 @@ pub enum Op {
     Print,
 }
 
-pub fn parse_program(source: &str) -> Vec<Op> {
-    let mut program: Vec<Op> = Vec::new();
+pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
+    let mut program: Vec<Token> = Vec::new();
     let mut ret_stack: Vec<usize> = Vec::new();
     let mut jmp_count = 0;
 
-    'lines: for line in source.split("\n") {
-        for word in line.split(" ") {
+    'lines: for (row, line) in source.split("\n").enumerate() {
+        // I think this implementation of getting the col of each word is kind of ugly
+        // Because it involves a lot of allocations which *should* be unecessary.
+        // TODO: Better implementation without allocations
+        let mut cs = line.char_indices().peekable();
+        let mut ws: Vec<(usize, String)> = Vec::new();
+
+        while cs.peek().is_some() {
+            if cs.peek().unwrap().1 != ' ' {
+                let c = cs.next().unwrap();
+                ws.push((c.0, c.1.to_string()));
+
+                while cs.peek().is_some() && cs.peek().unwrap().1 != ' ' {
+                    let last_ws_i = ws.len() - 1;
+                    ws[last_ws_i] = (
+                        ws[last_ws_i].0,
+                        ws.get(last_ws_i).unwrap().1.clone() + &cs.next().unwrap().1.to_string(),
+                    );
+                }
+            }
+
+            cs.next();
+        }
+
+        for (col, word) in ws {
+            let loc = Loc::new(path, row + 1, col);
+            macro_rules! push {
+                ($op:expr) => {
+                    program.push(Token::new($op, loc))
+                };
+            }
+
             if let Ok(val) = word.parse::<u64>() {
-                program.push(Op::PushInt(val));
+                push!(Op::PushInt(val));
             } else {
-                match word {
-                    "+" => program.push(Op::Plus),
-                    "-" => program.push(Op::Minus),
-                    "dup" => program.push(Op::Dup),
-                    "drop" => program.push(Op::Drop),
-                    "=" => program.push(Op::Equals),
-                    "!=" => program.push(Op::Neq),
+                match &word[..] {
+                    "+" => push!(Op::Plus),
+                    "-" => push!(Op::Minus),
+                    "dup" => push!(Op::Dup),
+                    "drop" => push!(Op::Drop),
+                    "=" => push!(Op::Equals),
+                    "!=" => push!(Op::Neq),
                     "not" => {
-                        program.push(Op::PushInt(1));
-                        program.push(Op::Neq);
+                        push!(Op::PushInt(1));
+                        push!(Op::Neq);
                     }
-                    ">" => program.push(Op::GreaterThan),
-                    "<" => program.push(Op::LessThan),
-                    "or" => program.push(Op::Or),
-                    "and" => program.push(Op::And),
+                    ">" => push!(Op::GreaterThan),
+                    "<" => push!(Op::LessThan),
+                    "or" => push!(Op::Or),
+                    "and" => push!(Op::And),
                     "if" => {
                         ret_stack.push(program.len());
-                        program.push(Op::If(None));
+                        push!(Op::If(None));
                     }
                     "while" => {
                         ret_stack.push(program.len());
-                        program.push(Op::While(None));
+                        push!(Op::While(None));
                     }
                     "do" => {
-                        let index = *ret_stack
-                            .get(ret_stack.len() - 1)
-                            .expect("Empty return stack");
-                        match program[index] {
+                        let index = match ret_stack.last() {
+                            Some(index) => *index,
+                            None => {
+                                eprintln!("{}: `do` must close `while` condn", loc);
+                                process::exit(1);
+                            }
+                        };
+                        match program[index].op {
                             Op::While(None) => {
-                                program[index] = Op::While(Some(Box::new(Op::If(Some(jmp_count)))));
-                                program.push(Op::If(Some(jmp_count)));
+                                program[index].op =
+                                    Op::While(Some(Box::new(Op::If(Some(jmp_count)))));
+                                push!(Op::If(Some(jmp_count)));
                                 jmp_count += 2;
                             }
                             _ => unreachable!(),
                         }
                     }
                     "end" => {
-                        let index = ret_stack.pop().expect("Empty return stack");
-                        match &program[index] {
+                        let index = match ret_stack.pop() {
+                            Some(index) => index,
+                            None => {
+                                eprintln!("{}: `end` must close either `do` or `if` block", loc);
+                                process::exit(1);
+                            }
+                        };
+                        match &program[index].op {
                             Op::If(None) => {
-                                program[index] = Op::If(Some(jmp_count));
-                                program.push(Op::End(Box::new(Op::If(Some(jmp_count)))));
+                                program[index].op = Op::If(Some(jmp_count));
+                                push!(Op::End(Box::new(Op::If(Some(jmp_count)))));
                                 jmp_count += 1;
                             }
                             Op::While(Some(op)) => match **op {
                                 Op::If(Some(id)) => {
-                                    program.push(Op::End(Box::new(Op::While(Some(Box::new(
-                                        Op::If(Some(id)),
-                                    ))))));
+                                    push!(Op::End(Box::new(Op::While(Some(Box::new(Op::If(
+                                        Some(id)
+                                    ),))))));
                                 }
                                 _ => unreachable!(),
                             },
                             _ => unreachable!(),
                         };
                     }
-                    "true" => program.push(Op::PushInt(1)),
-                    "false" => program.push(Op::PushInt(0)),
-                    "print" => program.push(Op::Print),
+                    "true" => push!(Op::PushInt(1)),
+                    "false" => push!(Op::PushInt(0)),
+                    "print" => push!(Op::Print),
                     "//" => continue 'lines,
                     "" => {}
                     _ => {
-                        eprintln!("[ERROR] Unknown word `{}` in program source", word);
+                        eprintln!("{}: Unknown word `{}` in program source", loc, word);
                         process::exit(1);
                     }
                 }
@@ -138,42 +209,70 @@ pub fn parse_program(source: &str) -> Vec<Op> {
     program
 }
 
-pub fn generate_fasm_x86_64(program: Vec<Op>) -> String {
+pub fn generate_fasm_x86_64(program: Vec<Token<'_>>) -> String {
     let mut outbuf = String::from(ASM_HEADER);
 
     let mut jump_target_count = 0;
 
-    for op in program {
+    for (loc, op) in program.into_iter().map(|tok| (tok.loc, tok.op)) {
         match op {
             Op::PushInt(val) => {
-                outbuf = outbuf + &format!("  ;; Op::PushInt({})\n  push {}\n", val, val);
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::PushInt({0}) - {1}
+  push {0}
+",
+                        val, loc
+                    );
             }
             Op::Plus => {
-                outbuf =
-                    outbuf + "  ;; Op::Plus\n  pop rax\n  pop rbx\n  add rax, rbx\n  push rax\n";
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::Plus - {}
+  pop rax
+  pop rbx
+  add rax, rbx
+  push rax
+",
+                        loc
+                    );
             }
             Op::Minus => {
-                outbuf =
-                    outbuf + "  ;; Op::Minus\n  pop rbx\n  pop rax\n  sub rax, rbx\n  push rax\n";
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::Minus - {}
+  pop rbx
+  pop rax
+  sub rax, rbx
+  push rax
+",
+                        loc
+                    );
             }
             Op::Dup => {
                 outbuf = outbuf
-                    + "  ;; Op::Dup
+                    + &format!(
+                        "  ;; Op::Dup - {}
   pop rax
   push rax
   push rax
-"
+",
+                        loc
+                    );
             }
             Op::Drop => {
                 outbuf = outbuf
-                    + "  ;; Op::Drop
+                    + &format!(
+                        "  ;; Op::Drop - {}
   add rsp, 8
-"
+",
+                        loc
+                    );
             }
             Op::Equals => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::Equals
+                        "  ;; Op::Equals - {loc}
   pop rax
   pop rbx
   cmp rax, rbx
@@ -185,14 +284,14 @@ J{0}:
 J{1}:
 ",
                         jump_target_count,
-                        jump_target_count + 1
+                        jump_target_count + 1,
                     );
                 jump_target_count += 2;
             }
             Op::Neq => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::Neq
+                        "  ;; Op::Neq - {loc}
   pop rax
   pop rbx
   cmp rax, rbx
@@ -204,14 +303,14 @@ J{0}:
 J{1}:
 ",
                         jump_target_count,
-                        jump_target_count + 1
+                        jump_target_count + 1,
                     );
                 jump_target_count += 2;
             }
             Op::GreaterThan => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::GreaterThan
+                        "  ;; Op::GreaterThan - {loc}
   pop rax
   pop rbx
   cmp rax, rbx
@@ -223,14 +322,14 @@ J{0}:
 J{1}:
 ",
                         jump_target_count,
-                        jump_target_count + 1
+                        jump_target_count + 1,
                     );
                 jump_target_count += 2;
             }
             Op::LessThan => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::LessThan
+                        "  ;; Op::LessThan - {loc}
   pop rax
   pop rbx
   cmp rbx, rax
@@ -242,14 +341,14 @@ J{0}:
 J{1}:
 ",
                         jump_target_count,
-                        jump_target_count + 1
+                        jump_target_count + 1,
                     );
                 jump_target_count += 2;
             }
             Op::Or => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::Or
+                        "  ;; Op::Or - {loc}
   pop rax
   pop rbx
   cmp rax, 1
@@ -263,14 +362,14 @@ J{0}:
 J{1}:
 ",
                         jump_target_count,
-                        jump_target_count + 1
+                        jump_target_count + 1,
                     );
                 jump_target_count += 2;
             }
             Op::And => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::And
+                        "  ;; Op::And - {2}
   pop rax
   pop rbx
   cmp rax, rbx
@@ -284,14 +383,15 @@ J{0}:
 J{1}:
 ",
                         jump_target_count,
-                        jump_target_count + 1
+                        jump_target_count + 1,
+                        loc
                     );
                 jump_target_count += 2;
             }
             Op::If(Some(jump_to)) => {
                 outbuf = outbuf
                     + &format!(
-                        "  ;; Op::If
+                        "  ;; Op::If - {loc}
   pop rax
   cmp rax, 1
   jne F{}
@@ -300,14 +400,14 @@ J{1}:
                     )
             }
             Op::If(None) => {
-                eprintln!("[ERROR] No closing `end` for `if` keyword");
+                eprintln!("{}: No closing `end` for `if` keyword", loc);
                 process::exit(1);
             }
             Op::While(Some(op)) => match *op {
                 Op::If(Some(id)) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::While
+                            "  ;; Op::While - {loc}
 F{}:
 ",
                             id + 1
@@ -316,14 +416,14 @@ F{}:
                 _ => unreachable!(),
             },
             Op::While(None) => {
-                eprintln!("[ERROR] No closing `do` for `while` keyword");
+                eprintln!("{}: No closing `do` for `while` keyword", loc);
                 process::exit(1);
             }
             Op::End(op) => match *op {
                 Op::If(Some(id)) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::End(If)
+                            "  ;; Op::End(If) - {loc}
 F{}:
 ",
                             id
@@ -334,7 +434,7 @@ F{}:
                     Op::If(Some(id)) => {
                         outbuf = outbuf
                             + &format!(
-                                " ;; Op::End(While)
+                                " ;; Op::End(While) - {loc}
   jmp F{}
 F{}:
 ",
@@ -357,15 +457,11 @@ F{}:
                 | Op::PushInt(_)
                 | Op::Or
                 | Op::And
-                | Op::End(_) => {
-                    eprintln!("[ERROR] End block cannot close `{:?}`", op);
-                    process::exit(1);
-                }
+                | Op::End(_) => unreachable!("End block cannot close `{:?}`", op),
             },
-            Op::Print => outbuf = outbuf + "  ;; Op::Print\n  pop rdi\n  call print\n",
+            Op::Print => outbuf = outbuf + "  ;; Op::Print - {loc}\n  pop rdi\n  call print\n",
         };
     }
-
     outbuf
         + "  mov rax, 60
   mov rdi, 0
