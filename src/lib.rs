@@ -474,7 +474,9 @@ F{}:
                 | Op::And
                 | Op::End(_) => unreachable!("End block cannot close `{:?}`", op),
             },
-            Op::Print => outbuf = outbuf + "  ;; Op::Print - {loc}\n  pop rdi\n  call print\n",
+            Op::Print => {
+                outbuf = outbuf + &format!("  ;; Op::Print - {loc}\n  pop rdi\n  call print\n")
+            }
         };
     }
     outbuf
