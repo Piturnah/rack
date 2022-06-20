@@ -75,6 +75,7 @@ pub enum Op {
     Minus,
     Dup,
     Drop,
+    Swap,
     Equals,
     Neq,
     GreaterThan,
@@ -132,6 +133,7 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
                     "-" => push!(Op::Minus),
                     "dup" => push!(Op::Dup),
                     "drop" => push!(Op::Drop),
+                    "swap" => push!(Op::Swap),
                     "=" => push!(Op::Equals),
                     "!=" => push!(Op::Neq),
                     "not" => {
@@ -265,6 +267,18 @@ pub fn generate_fasm_x86_64(program: Vec<Token<'_>>) -> String {
                     + &format!(
                         "  ;; Op::Drop - {}
   add rsp, 8
+",
+                        loc
+                    );
+            }
+            Op::Swap => {
+                outbuf = outbuf
+                    + &format!(
+                        "  ;; Op::Swap - {}
+  pop rax
+  pop rbx
+  push rax
+  push rbx
 ",
                         loc
                     );
@@ -448,6 +462,7 @@ F{}:
                 Op::Dup
                 | Op::Drop
                 | Op::Equals
+                | Op::Swap
                 | Op::Neq
                 | Op::GreaterThan
                 | Op::LessThan
