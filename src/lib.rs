@@ -217,7 +217,7 @@ pub fn parse_program<'a>(source: &str, path: &'a str) -> Vec<Token<'a>> {
     program
 }
 
-pub fn generate_fasm_x86_64(program: Vec<Token<'_>>) -> String {
+pub fn generate_fasm_x86_64(program: Vec<Token>) -> String {
     let mut outbuf = String::from(ASM_HEADER);
 
     let mut jump_target_count = 0;
