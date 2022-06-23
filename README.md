@@ -40,6 +40,12 @@ Push a u64 onto the stack
 42
 ```
 
+**Example** Hex literals are parsed too
+
+```
+0xff
+```
+
 ### Stack Manipulation
 
 #### print
