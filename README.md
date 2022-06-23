@@ -150,7 +150,7 @@ Pops `a` then `b` from the stack, pushes the result of `b - a`
 
 ### Control Flow
 
-#### if <branch> end
+#### if \<branch> end
 
 Pops from stack. If `true`, execute `<branch>`, else go to `end`.
 
@@ -172,7 +172,7 @@ end
 42
 ```
 
-#### while <condition> do <branch> end
+#### while \<condition> do \<branch> end
 
 While `<condition>` is `true`, execute `branch`.
 
