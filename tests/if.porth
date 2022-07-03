@@ -1,19 +1,19 @@
-// program should print 42 and 11
-// but not 100
+// program should print "true" and "also true"
+// but never print "false"
 
 50 8 - 42 = if
-  42 print
+  "true\n" puts
 
   true if
      false if
-       5 print
+       "false\n" puts
      end
 
-     11 print
+     "also true\n" puts
   end
 
   8 2 = if
-    100 print
+    "false\n" puts
   end
 
 end
