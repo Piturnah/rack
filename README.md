@@ -22,8 +22,8 @@ The file provided will be compiled into x86-64 fasm which will be written to `./
 
 ```console
 $ cargo run -- -r tests/if.porth
-42
-11
+true
+also true
 ```
 
 ## Documentation
