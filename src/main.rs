@@ -1,5 +1,5 @@
 use clap::Parser;
-use compiler::*;
+use compiler::Program;
 use std::{
     fs,
     process::{self, Stdio},
@@ -28,11 +28,11 @@ fn main() {
         }
     };
 
-    let program = parse_program(&source, &config.file);
+    let program = Program::parse(&source, &config.file);
 
     println!("[INFO] Generating `out.asm`");
 
-    let outbuf = generate_fasm_x86_64(program);
+    let outbuf = program.generate_fasm_x86_64();
     fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
 
     run_command("fasm out.asm");

@@ -46,7 +46,24 @@ Push a u64 onto the stack
 0xff
 ```
 
-### Stack Manipulation
+#### String Literals
+
+String literals are pushed to the stack as a count followed by a pointer.
+
+**Example**
+
+```
+"Hello, world!" print print
+```
+
+**Output**
+
+```console
+4198733
+13
+```
+
+### Output
 
 #### print
 
@@ -63,6 +80,24 @@ Pops from the stack and sends to stdout as u64.
 ```console
 42
 ```
+
+#### puts
+
+Pops a pointer and count from the stack and prints the string at the pointer to stdout.
+
+**Example**
+
+```
+"Hello, world!\n" puts
+```
+
+**Output**
+
+```console
+Hello, world!
+```
+
+### Stack Manipulation
 
 #### drop
 
