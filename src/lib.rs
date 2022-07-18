@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fmt::{self, Write},
     process,
 };
@@ -91,7 +92,9 @@ pub enum Op {
     While(Option<Box<Op>>),
     End(Box<Op>),
     Print,
-    Puts, // Later move to stdlib?
+    Puts,          // Later move to stdlib?
+    Bind(u64),     // number of variables to bind
+    PushBind(u64), // index of binding to push
 }
 
 pub struct Program<'a> {
@@ -104,6 +107,9 @@ impl<'a> Program<'a> {
         let mut program: Vec<Token> = Vec::new();
         let mut ret_stack: Vec<usize> = Vec::new();
         let mut jmp_count = 0;
+
+        let mut let_stack: Vec<Op> = Vec::new();
+        let mut bindings: Vec<HashMap<String, u64>> = Vec::new();
 
         let mut string_literals: Vec<String> = Vec::new();
 
@@ -258,18 +264,52 @@ impl<'a> Program<'a> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                _ => unreachable!(),
+                                Op::Bind(_) => {
+                                    bindings.pop();
+                                }
+                                op => {
+                                    eprintln!("{loc}: `end` tried to close `{op:?}`.");
+                                    eprintln!(
+                                        "{}: [NOTE] `{op:?}` found here.",
+                                        program[index].loc
+                                    );
+                                    process::exit(1);
+                                }
                             };
                         }
                         "true" => push!(Op::PushInt(1)),
                         "false" => push!(Op::PushInt(0)),
                         "print" => push!(Op::Print),
                         "puts" => push!(Op::Puts),
+                        "let" => {
+                            let_stack.push(Op::Bind(0));
+                            bindings.push(HashMap::new());
+                        }
+                        "in" => {
+                            match let_stack.pop() {
+                                Some(Op::Bind(count)) => {
+                                    ret_stack.push(program.len());
+                                    push!(Op::Bind(count));
+                                }
+                                _ => {
+                                    eprintln!("{loc}: `in` must close `let` bindings");
+                                    process::exit(1);
+                                }
+                            };
+                        }
                         "//" => continue 'lines,
                         "" => {}
-                        _ => {
-                            eprintln!("{}: Unknown word `{}` in program source", loc, word);
-                            process::exit(1);
+                        w => {
+                            if let Some(Op::Bind(count)) = let_stack.pop() {
+                                let_stack.push(Op::Bind(count + 1));
+                                let count = bindings.iter().map(|map| map.len() as u64).sum();
+                                bindings.last_mut().unwrap().insert(w.to_string(), count);
+                            } else if let Some(index) = bindings.last().unwrap().get(w) {
+                                push!(Op::PushBind(*index));
+                            } else {
+                                eprintln!("{}: Unknown word `{}` in program source", loc, word);
+                                process::exit(1);
+                            }
                         }
                     }
                 }
@@ -290,6 +330,38 @@ impl<'a> Program<'a> {
 
         for (loc, op) in program.into_iter().map(|tok| (tok.loc, tok.op)) {
             match op {
+                Op::Bind(count) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Bind({}) - {loc}
+  mov rax, ret_stack_rsp
+  sub rax, {}
+  mov [ret_stack_rsp], rax
+",
+                            count,
+                            count * 8
+                        );
+                    for i in 0..count {
+                        outbuf = outbuf
+                            + &format!(
+                                "  pop rbx
+  mov [rax+{}], rbx
+",
+                                (count - 1 - i) * 8
+                            );
+                    }
+                }
+                Op::PushBind(index) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::PushBind({index}) - {loc}
+  mov rax, [ret_stack_rsp]
+  add rax, {}
+  push qword [rax]
+",
+                            index * 8
+                        )
+                }
                 Op::PushInt(val) => {
                     outbuf = outbuf
                         + &format!(
@@ -553,6 +625,8 @@ F{}:
                     },
                     Op::While(None) => unreachable!(),
                     Op::Dup
+                    | Op::Bind(_)
+                    | Op::PushBind(_)
                     | Op::Drop
                     | Op::Equals
                     | Op::Swap
@@ -590,7 +664,10 @@ F{}:
         outbuf += "  mov rax, 60
   mov rdi, 0
   syscall
-segment readable
+segment readable writeable
+ret_stack_rsp: rq 1
+ret_stack: rb 65536
+ret_stack_end:
 ";
         for (i, s) in self.string_literals.iter().enumerate() {
             let mut s_bytes = String::new();
