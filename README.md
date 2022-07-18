@@ -12,8 +12,9 @@ ARGS:
     <FILE>    Input file
 
 OPTIONS:
-    -h, --help    Print help information
-    -r, --run     Run the program after successful compilation
+    -h, --help               Print help information
+    -r, --run                Run the program after successful compilation
+    -t, --target <TARGET>    Target architecture [default: x86_64-linux]
 ```
 
 ## Example Usage
