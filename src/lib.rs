@@ -321,7 +321,7 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn generate_fasm_x86_64(self) -> String {
+    pub fn generate_fasm_x86_64_linux(self) -> String {
         let program = self.program;
 
         let mut outbuf = String::from(ASM_HEADER);
