@@ -1,0 +1,5 @@
+"Hello, " "world!\n"
+let hello ptr1 world ptr2 in
+  hello ptr1 puts
+  world ptr2 puts
+end
