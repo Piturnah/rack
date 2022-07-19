@@ -113,7 +113,7 @@ impl<'a> Program<'a> {
 
         let mut string_literals: Vec<String> = Vec::new();
 
-        'lines: for (row, line) in source.split('\n').enumerate() {
+        'lines: for (row, line) in source.lines().enumerate() {
             // I think this implementation of getting the col of each word is kind of ugly
             // Because it involves a lot of allocations which *should* be unecessary.
             // TODO: Better implementation without allocations
