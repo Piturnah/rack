@@ -699,7 +699,7 @@ ret_stack_end:
         for (loc, op) in self.program.into_iter().map(|tok| (tok.loc, tok.op)) {
             let opcodes = match op {
                 Op::PushInt(val) => vec![LDA_IMM, val as u8, PHA],
-                Op::Plus => vec![PLA, STA_ZPG, 0x00, PLA, ADC_ZPG, 0x00],
+                Op::Plus => vec![PLA, STA_ZPG, 0x00, PLA, ADC_ZPG, 0x00, PHA],
                 Op::Drop => vec![PLA],
                 op => {
                     eprintln!("{loc}: `{op:?}` not implemented in codegen!");
