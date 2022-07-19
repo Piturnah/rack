@@ -308,6 +308,15 @@ impl<'a> Program<'a> {
                                 bindings.last().unwrap_or(&HashMap::new()).get(w)
                             {
                                 push!(Op::PushBind(*index));
+                            } else if w.starts_with("'") && w.ends_with("'") {
+                                match w.len() {
+                                    3 => {
+                                        push!(Op::PushInt(w.chars().nth(1).unwrap() as u64));
+                                    }
+                                    _ => {
+                                        eprintln!("{loc}: Character literals must be only one char")
+                                    }
+                                }
                             } else {
                                 eprintln!("{}: Unknown word `{}` in program source", loc, word);
                                 process::exit(1);
