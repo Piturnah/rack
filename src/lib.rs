@@ -681,4 +681,41 @@ ret_stack: rb 65536
 ret_stack_end:
 "
     }
+
+    pub fn generate_code_mos_6502_nesulator(self) -> [u8; 65536 - 0x4020] {
+        const NOP: u8 = 0xea;
+        const PHA: u8 = 0x48;
+        const PLA: u8 = 0x68;
+        const ADC_ZPG: u8 = 0x65;
+        const LDA_IMM: u8 = 0xa9;
+        const STA_ZPG: u8 = 0x85;
+
+        let mut outbuf = vec![NOP; 65536 - 0x4020];
+        outbuf[0xfffc - 0x4020] = 0x20;
+        outbuf[0xfffd - 0x4020] = 0x40;
+
+        let mut pc: usize = 0x00;
+
+        for (loc, op) in self.program.into_iter().map(|tok| (tok.loc, tok.op)) {
+            let opcodes = match op {
+                Op::PushInt(val) => vec![LDA_IMM, val as u8, PHA],
+                Op::Plus => vec![PLA, STA_ZPG, 0x00, PLA, ADC_ZPG, 0x00],
+                Op::Drop => vec![PLA],
+                op => {
+                    eprintln!("{loc}: `{op:?}` not implemented in codegen!");
+                    process::exit(1);
+                }
+            };
+            outbuf.splice(pc..pc + opcodes.len(), opcodes.iter().cloned());
+            pc += opcodes.len();
+        }
+
+        outbuf.try_into().unwrap_or_else(|v: Vec<u8>| {
+            panic!(
+                "Expected Vec of length {} but it was {}",
+                65536 - 0x4020,
+                v.len()
+            )
+        })
+    }
 }
