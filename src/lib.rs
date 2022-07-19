@@ -664,10 +664,7 @@ F{}:
         outbuf += "  mov rax, 60
   mov rdi, 0
   syscall
-segment readable writeable
-ret_stack_rsp: rq 1
-ret_stack: rb 65536
-ret_stack_end:
+segment readable
 ";
         for (i, s) in self.string_literals.iter().enumerate() {
             let mut s_bytes = String::new();
@@ -678,5 +675,10 @@ ret_stack_end:
         }
 
         outbuf
+            + "segment readable writable
+ret_stack_rsp: rq 1
+ret_stack: rb 65536
+ret_stack_end:
+"
     }
 }
