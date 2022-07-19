@@ -304,7 +304,9 @@ impl<'a> Program<'a> {
                                 let_stack.push(Op::Bind(count + 1));
                                 let count = bindings.iter().map(|map| map.len() as u64).sum();
                                 bindings.last_mut().unwrap().insert(w.to_string(), count);
-                            } else if let Some(index) = bindings.last().unwrap().get(w) {
+                            } else if let Some(index) =
+                                bindings.last().unwrap_or(&HashMap::new()).get(w)
+                            {
                                 push!(Op::PushBind(*index));
                             } else {
                                 eprintln!("{}: Unknown word `{}` in program source", loc, word);
