@@ -718,9 +718,11 @@ ret_stack_end:
         const ADC_ZPG: u8 = 0x65;
         const SBC_ZPG: u8 = 0xe5;
         const LDA_IMM: u8 = 0xa9;
+        const LDA_ZPG: u8 = 0xa5;
         const STA_ZPG: u8 = 0x85;
         const BNE: u8 = 0xd0;
         const CMP_IMM: u8 = 0xc9;
+        const CMP_ZPG: u8 = 0xc5;
 
         let mut outbuf = vec![NOP; 65536 - 0x4020];
         outbuf[0xfffc - 0x4020] = 0x20;
@@ -729,6 +731,7 @@ ret_stack_end:
         let mut pc: usize = 0x00;
 
         let mut unclosed_ifs = Vec::new();
+        let mut unclosed_whiles = Vec::new();
 
         for (loc, op) in self.program.into_iter().map(|tok| (tok.loc, tok.op)) {
             let opcodes = match op {
@@ -736,17 +739,53 @@ ret_stack_end:
                 Op::Plus => vec![PLA, STA_ZPG, 0x00, PLA, CLC, ADC_ZPG, 0x00, PHA],
                 Op::Minus => vec![PLA, STA_ZPG, 0x00, PLA, SEC, SBC_ZPG, 0x00, PHA],
                 Op::Drop => vec![PLA],
+                Op::Over => vec![
+                    PLA, STA_ZPG, 0x00, PLA, STA_ZPG, 0x01, PLA, STA_ZPG, 0x02, LDA_ZPG, 0x01, PHA,
+                    LDA_ZPG, 0x02, PHA, LDA_ZPG, 0x00, PHA,
+                ],
+                Op::Dup => vec![PLA, PHA, PHA],
+                Op::Neq => vec![
+                    PLA, STA_ZPG, 0x00, PLA, CMP_ZPG, 0x00, BNE, 0x09, LDA_IMM, 0x00, PHA, LDA_IMM,
+                    0x01, BNE, 0x05, LDA_IMM, 0x01, PHA,
+                ],
+                Op::Swap => vec![
+                    PLA, STA_ZPG, 0x00, PLA, STA_ZPG, 0x01, LDA_ZPG, 0x00, PHA, LDA_ZPG, 0x01, PHA,
+                ],
                 Op::If(_) => {
                     unclosed_ifs.push(pc + 3);
                     vec![PLA, CMP_IMM, 0x01, BNE, 0x00]
                 }
-                Op::End(_) => {
-                    let branch_index = unclosed_ifs
-                        .pop()
-                        .expect("`end` has no opening keyword in codegen!");
-                    outbuf[branch_index as usize + 1] = (pc - branch_index) as i8 as u8;
+                Op::While(_) => {
+                    unclosed_whiles.push(pc);
                     vec![]
                 }
+                Op::End(op) => match *op {
+                    Op::If(_) => {
+                        let branch_index = unclosed_ifs
+                            .pop()
+                            .expect("`end` has no opening keyword in codegen!");
+                        outbuf[branch_index as usize + 1] = (pc - branch_index) as i8 as u8;
+                        vec![]
+                    }
+                    Op::While(_) => {
+                        let branch_index = unclosed_ifs
+                            .pop()
+                            .expect("`end` has no opening keyword in codegen!");
+                        outbuf[branch_index as usize + 1] = (pc + 4 - branch_index) as i8 as u8;
+
+                        let while_index = unclosed_whiles
+                            .pop()
+                            .expect("`endwhile` has no opening `while` in codegen!");
+
+                        vec![
+                            LDA_IMM,
+                            0x01,
+                            BNE,
+                            (while_index.wrapping_sub(pc)) as i8 as u8,
+                        ]
+                    }
+                    _ => todo!(),
+                },
                 op => {
                     eprintln!("{loc}: `{op:?}` not implemented in codegen!");
                     process::exit(1);
