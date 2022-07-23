@@ -81,6 +81,7 @@ pub enum Op {
     Dup,
     Drop,
     Swap,
+    Over,
     Equals,
     Neq,
     Not,
@@ -206,6 +207,7 @@ impl<'a> Program<'a> {
                         "dup" => push!(Op::Dup),
                         "drop" => push!(Op::Drop),
                         "swap" => push!(Op::Swap),
+                        "over" => push!(Op::Over),
                         "=" => push!(Op::Equals),
                         "!=" => push!(Op::Neq),
                         "not" => push!(Op::Not),
@@ -448,6 +450,19 @@ impl<'a> Program<'a> {
                             loc
                         );
                 }
+                Op::Over => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Over - {loc}
+  pop rax
+  pop rbx
+  pop rcx
+  push rbx
+  push rax
+  push rcx
+"
+                        );
+                }
                 Op::Equals => {
                     outbuf = outbuf
                         + &format!(
@@ -641,6 +656,7 @@ F{}:
                     | Op::Drop
                     | Op::Equals
                     | Op::Swap
+                    | Op::Over
                     | Op::Neq
                     | Op::Not
                     | Op::GreaterThan
