@@ -46,7 +46,7 @@ Push a u64 onto the stack
 42 print
 0x2a print
 0o52 print
-0b0b101010 print
+0b101010 print
 ```
 
 ```console
