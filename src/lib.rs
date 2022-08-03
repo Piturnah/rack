@@ -156,6 +156,22 @@ impl<'a> Program<'a> {
                             process::exit(1);
                         }
                     }));
+                } else if let Some(word) = word.strip_prefix("0o") {
+                    push!(Op::PushInt(match u64::from_str_radix(word, 8) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{loc}: Could not parse octal literal: {e}.");
+                            process::exit(1);
+                        }
+                    }));
+                } else if let Some(word) = word.strip_prefix("0b") {
+                    push!(Op::PushInt(match u64::from_str_radix(word, 2) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{loc}: Could not parse binary literal: {e}.");
+                            process::exit(1);
+                        }
+                    }));
                 } else if let Some(str_index) = word.strip_prefix("IR_LIT_STR_") {
                     let str_index = str_index.parse::<usize>().unwrap();
                     push!(Op::PushInt(
