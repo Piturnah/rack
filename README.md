@@ -107,6 +107,25 @@ Hello, world!
 
 ### Stack Manipulation
 
+#### let
+
+Bind arbitrary number of stack elements to names
+
+```
+1 2 3
+let a b c in
+  a print
+  b print
+  c print
+end
+```
+
+```console
+1
+2
+3
+```
+
 #### drop
 
 Drops one element from the stack
