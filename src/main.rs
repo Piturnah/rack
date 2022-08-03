@@ -10,6 +10,7 @@ use std::{
 #[allow(non_camel_case_types)]
 enum Target {
     X86_64_Linux,
+    X86_64_FASM,
     Mos6502_Nesulator,
 }
 
@@ -23,6 +24,7 @@ impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
             Self::X86_64_Linux => write!(f, "x86_64-linux"),
+            Self::X86_64_FASM => write!(f, "x86_64-FASM"),
             Self::Mos6502_Nesulator => write!(f, "mos_6502-nesulator"),
         }
     }
@@ -34,6 +36,7 @@ impl FromStr for Target {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "x86_64-linux" => Ok(Self::X86_64_Linux),
+            "X86_64-fasm" => Ok(Self::X86_64_FASM),
             "mos_6502-nesulator" => Ok(Self::Mos6502_Nesulator),
             _ => Err(TargetNotFoundError),
         }
@@ -94,6 +97,11 @@ fn main() {
             if config.run {
                 run_command("./out");
             }
+        }
+        Target::X86_64_FASM => {
+            println!("[INFO] Genereting `./out.asm`");
+            let outbuf = program.generate_fasm_x86_64_linux();
+            fs::write("./out.asm", &outbuf).expect("failed to write to out.asm");
         }
         Target::Mos6502_Nesulator => {
             println!("[INFO] Generating `./out`");

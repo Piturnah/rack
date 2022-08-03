@@ -17,6 +17,13 @@ OPTIONS:
     -t, --target <TARGET>    Target architecture [default: x86_64-linux]
 ```
 
+### Targets
+- `x86_64-linux`\*
+- `x86_64-fasm`
+- [`mos_6502-nesulator`](https://github.com/Piturnah/nesulator)
+
+\* Requires [fasm](https://flatassembler.net/download.php) on path (on most package managers)
+
 ## Example Usage
 
 The file provided will be compiled into x86-64 fasm which will be written to `./out.asm` and can then be compiled to an executable binary with [fasm](https://flatassembler.net/)
