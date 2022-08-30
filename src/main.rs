@@ -89,13 +89,13 @@ fn main() {
     let program = Program::parse(&source, &config.file);
 
     // Determine output path of compiled program
-    let default_path = &config.out.unwrap_or(
+    let default_path = &config.out.unwrap_or_else(|| {
         match config.target {
             Target::X86_64_Linux | Target::Mos6502_Nesulator => "./out",
             Target::X86_64_FASM => "./out.asm",
         }
-        .to_string(),
-    );
+        .to_string()
+    });
     let output_path = Path::new(&default_path);
 
     match config.target {
@@ -120,7 +120,7 @@ fn main() {
             run_command(&format!("chmod +x {}", output_path));
 
             if config.run {
-                run_command(&format!("{}", output_path));
+                run_command(&output_path);
             }
         }
         Target::X86_64_FASM => {
@@ -130,7 +130,8 @@ fn main() {
                 .to_owned();
             println!("[INFO] Generating `{}`", &output_path);
             let outbuf = program.generate_fasm_x86_64_linux();
-            fs::write(&output_path, &outbuf).expect(&format!("failed to write to {}", output_path));
+            fs::write(&output_path, &outbuf)
+                .unwrap_or_else(|_| panic!("failed to write to {}", output_path));
         }
         Target::Mos6502_Nesulator => {
             let output_path = output_path
@@ -140,7 +141,8 @@ fn main() {
             println!("[INFO] Generating `{}`", &output_path);
 
             let outbuf = program.generate_code_mos_6502_nesulator();
-            fs::write(&output_path, &outbuf).expect(&format!("Unable to write to {}", output_path));
+            fs::write(&output_path, &outbuf)
+                .unwrap_or_else(|_| panic!("Unable to write to {}", output_path));
 
             println!("[INFO] Wrote {} bytes", outbuf.len());
         }

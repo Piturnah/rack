@@ -288,7 +288,7 @@ impl<'a> Program<'a> {
                                 bindings.last().unwrap_or(&HashMap::new()).get(w)
                             {
                                 push!(Op::PushBind(*index));
-                            } else if w.starts_with("'") && w.ends_with("'") {
+                            } else if w.starts_with('\'') && w.ends_with('\'') {
                                 match w.len() {
                                     3 => {
                                         push!(Op::PushInt(w.chars().nth(1).unwrap() as u64));
@@ -714,7 +714,7 @@ segment readable
             for b in s.as_bytes() {
                 write!(&mut s_bytes, "{b},").unwrap();
             }
-            outbuf += &format!("str_{i}: db {}\n", s_bytes.trim_end_matches(","))
+            outbuf += &format!("str_{i}: db {}\n", s_bytes.trim_end_matches(','))
         }
 
         outbuf
