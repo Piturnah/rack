@@ -151,15 +151,12 @@ fn run_command(cmd: &str) {
     println!("[INFO] Running `{}`", cmd);
     let mut cmd = cmd.split_whitespace();
 
-    match process::Command::new(cmd.next().expect("No command provided"))
+    if let Err(e) = process::Command::new(cmd.next().expect("No command provided"))
         .args(cmd.collect::<Vec<&str>>())
         .stdout(Stdio::inherit())
         .output()
     {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("[ERROR] {}", e);
-            process::exit(1);
-        }
+        eprintln!("[ERROR] {}", e);
+        process::exit(1);
     };
 }
