@@ -3,6 +3,7 @@ use compiler::Program;
 use std::{
     error::Error,
     fmt, fs,
+    path::Path,
     process::{self, Stdio},
     str::FromStr,
 };
@@ -36,7 +37,7 @@ impl FromStr for Target {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "x86_64-linux" => Ok(Self::X86_64_Linux),
-            "X86_64-fasm" => Ok(Self::X86_64_FASM),
+            "x86_64-fasm" => Ok(Self::X86_64_FASM),
             "mos_6502-nesulator" => Ok(Self::Mos6502_Nesulator),
             _ => Err(TargetNotFoundError),
         }
@@ -67,6 +68,10 @@ struct Config {
     /// Input file
     #[clap()]
     file: String,
+
+    /// Output file
+    #[clap(short, long, value_name = "FILE")]
+    out: Option<String>,
 }
 
 fn main() {
@@ -83,31 +88,59 @@ fn main() {
 
     let program = Program::parse(&source, &config.file);
 
+    // Determine output path of compiled program
+    let default_path = &config.out.unwrap_or(
+        match config.target {
+            Target::X86_64_Linux | Target::Mos6502_Nesulator => "./out",
+            Target::X86_64_FASM => "./out.asm",
+        }
+        .to_string(),
+    );
+    let output_path = Path::new(&default_path);
+
     match config.target {
         Target::X86_64_Linux => {
-            println!("[INFO] Generating `./out.asm`");
+            let asm_path = output_path
+                .with_extension("asm")
+                .to_str()
+                .expect("path name is invalid unicode")
+                .to_owned();
+
+            println!("[INFO] Generating `{}`", asm_path);
 
             let outbuf = program.generate_fasm_x86_64_linux();
-            fs::write("./out.asm", &outbuf).expect("Unable to write to out.asm");
+            fs::write(&asm_path, &outbuf).expect("Unable to write to out.asm");
 
-            run_command("fasm out.asm");
+            run_command(&format!("fasm {}", asm_path));
 
-            run_command("chmod +x out");
+            let output_path = output_path
+                .to_str()
+                .expect("path name is invalid unicode")
+                .to_owned();
+            run_command(&format!("chmod +x {}", output_path));
 
             if config.run {
-                run_command("./out");
+                run_command(&format!("{}", output_path));
             }
         }
         Target::X86_64_FASM => {
-            println!("[INFO] Genereting `./out.asm`");
+            let output_path = output_path
+                .to_str()
+                .expect("path name is invalid unicode")
+                .to_owned();
+            println!("[INFO] Generating `{}`", &output_path);
             let outbuf = program.generate_fasm_x86_64_linux();
-            fs::write("./out.asm", &outbuf).expect("failed to write to out.asm");
+            fs::write(&output_path, &outbuf).expect(&format!("failed to write to {}", output_path));
         }
         Target::Mos6502_Nesulator => {
-            println!("[INFO] Generating `./out`");
+            let output_path = output_path
+                .to_str()
+                .expect("path name is invalid unicode")
+                .to_owned();
+            println!("[INFO] Generating `{}`", &output_path);
 
             let outbuf = program.generate_code_mos_6502_nesulator();
-            fs::write("./out", &outbuf).expect("Unable to write to ./out");
+            fs::write(&output_path, &outbuf).expect(&format!("Unable to write to {}", output_path));
 
             println!("[INFO] Wrote {} bytes", outbuf.len());
         }
