@@ -30,9 +30,8 @@ OPTIONS:
 The file provided will be compiled into x86-64 fasm which will be written to `./out.asm` and can then be compiled to an executable binary with [fasm](https://flatassembler.net/)
 
 ```console
-$ cargo run -- -r tests/if.porth
-true
-also true
+$ cargo run -- -r tests/puts.porth
+hello, world!
 ```
 
 ## Documentation
