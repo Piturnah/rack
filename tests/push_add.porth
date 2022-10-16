@@ -1,0 +1,5 @@
+// Intended for testing mos_6502-nesulator target
+
+20 22 +
+
+// 42 should end up in accumulator

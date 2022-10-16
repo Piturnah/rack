@@ -1,0 +1,23 @@
+1 2
+let a b in
+  a print
+  b print
+  
+  3 4
+  let c d in
+    3 print
+    4 print
+  end
+
+  a print
+end
+
+5 6 let f g in
+  f print
+  g print
+end
+
+7 8 let a b in
+  a print
+  b print
+end

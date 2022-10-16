@@ -1,0 +1,76 @@
+// Need to implement NES codegen for `minus`, `if` `not`, `=`,
+//   (`swap` + `2dup` or `let` bindings), and string literals
+// before we can refactor this to be a lot smaller and neater
+// using while loops.
+
+'H'
+drop drop 'e'
+drop drop 'l'
+drop drop 'l'
+drop drop 'o'
+drop 
+drop drop 't'
+drop drop 'h'
+drop drop 'e'
+drop drop 'r'
+drop drop 'e'
+
+drop drop drop drop
+drop drop drop
+
+'I'
+drop 
+drop drop 'c'
+drop drop 'a'
+drop drop 'n'
+drop 
+drop drop 'w'
+drop drop 'r'
+drop drop 'i'
+drop drop 't'
+drop drop 'e'
+drop
+drop drop drop drop
+drop drop 'm'
+drop drop 'e'
+drop drop 's'
+drop drop 's'
+drop drop 'a'
+drop drop 'g'
+drop drop 'e'
+drop drop 's'
+drop 
+drop drop 'i'
+drop drop 'n'
+drop drop 't'
+drop drop 'o'
+drop
+drop drop drop
+drop drop 't'
+drop drop 'h'
+drop drop 'e'
+drop 
+drop drop 'R'
+drop drop 'A'
+drop drop 'M'
+drop drop drop
+
+drop drop drop drop drop drop
+drop drop drop drop drop drop drop drop
+drop drop drop drop drop drop drop drop
+
+drop drop 'h'
+drop drop 'e'
+drop drop 'h'
+drop drop 'e'
+drop drop 'h'
+drop drop 'e'
+drop drop 'h'
+drop drop 'e'
+drop drop 'h'
+drop drop 'e'
+drop drop 'h'
+drop drop 'e'
+drop drop 'h'
+drop drop 'e'
+drop drop

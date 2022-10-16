@@ -4,44 +4,6 @@ use std::{
     process,
 };
 
-const ASM_HEADER: &str = "format ELF64 executable 3
-entry main
-segment readable executable
-print:
-  mov     r9, -3689348814741910323
-  sub     rsp, 40
-  mov     BYTE [rsp+31], 10
-  lea     rcx, [rsp+30]
-.L2:
-  mov     rax, rdi
-  lea     r8, [rsp+32]
-  mul     r9
-  mov     rax, rdi
-  sub     r8, rcx
-  shr     rdx, 3
-  lea     rsi, [rdx+rdx*4]
-  add     rsi, rsi
-  sub     rax, rsi
-  add     eax, 48
-  mov     BYTE [rcx], al
-  mov     rax, rdi
-  mov     rdi, rdx
-  mov     rdx, rcx
-  sub     rcx, 1
-  cmp     rax, 9
-  ja      .L2
-  lea     rax, [rsp+32]
-  mov     edi, 1
-  sub     rdx, rax
-  xor     eax, eax
-  lea     rsi, [rsp+32+rdx]
-  mov     rdx, r8
-  mov     rax, 1
-  syscall
-  add     rsp, 40
-  ret
-main:\n";
-
 pub struct Token<'l> {
     op: Op,
     loc: Loc<'l>,
@@ -84,6 +46,7 @@ pub enum Op {
     Dup,
     Drop,
     Swap,
+    Over,
     Equals,
     Neq,
     Not,
@@ -95,7 +58,9 @@ pub enum Op {
     While(Option<Box<Op>>),
     End(Box<Op>),
     Print,
-    Puts, // Later move to stdlib?
+    Puts,          // Later move to stdlib?
+    Bind(u64),     // number of variables to bind
+    PushBind(u64), // index of binding to push
 }
 
 pub struct Program<'a> {
@@ -110,9 +75,12 @@ impl<'a> Program<'a> {
         let mut bindings: HashMap<String, usize> = HashMap::new();
         let mut jmp_count = 0;
 
+        let mut let_stack: Vec<Op> = Vec::new();
+        let mut bindings: Vec<HashMap<String, u64>> = Vec::new();
+
         let mut string_literals: Vec<String> = Vec::new();
 
-        'lines: for (row, line) in source.split('\n').enumerate() {
+        'lines: for (row, line) in source.lines().enumerate() {
             // I think this implementation of getting the col of each word is kind of ugly
             // Because it involves a lot of allocations which *should* be unecessary.
             // TODO: Better implementation without allocations
@@ -192,6 +160,22 @@ impl<'a> Program<'a> {
                             process::exit(1);
                         }
                     }));
+                } else if let Some(word) = word.strip_prefix("0o") {
+                    push!(Op::PushInt(match u64::from_str_radix(word, 8) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{loc}: Could not parse octal literal: {e}.");
+                            process::exit(1);
+                        }
+                    }));
+                } else if let Some(word) = word.strip_prefix("0b") {
+                    push!(Op::PushInt(match u64::from_str_radix(word, 2) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{loc}: Could not parse binary literal: {e}.");
+                            process::exit(1);
+                        }
+                    }));
                 } else if let Some(str_index) = word.strip_prefix("IR_LIT_STR_") {
                     let str_index = str_index.parse::<usize>().unwrap();
                     push!(Op::PushInt(
@@ -205,6 +189,7 @@ impl<'a> Program<'a> {
                         "dup" => push!(Op::Dup),
                         "drop" => push!(Op::Drop),
                         "swap" => push!(Op::Swap),
+                        "over" => push!(Op::Over),
                         "=" => push!(Op::Equals),
                         "!=" => push!(Op::Neq),
                         "not" => push!(Op::Not),
@@ -279,9 +264,15 @@ impl<'a> Program<'a> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                Op::In => {}
+                                Op::Bind(_) => {
+                                    bindings.pop();
+                                }
                                 op => {
-                                    eprintln!("{loc}: `end` keyword doesn't support closing `{op:?}` blocks");
+                                    eprintln!("{loc}: `end` tried to close `{op:?}`.");
+                                    eprintln!(
+                                        "{}: [NOTE] `{op:?}` found here.",
+                                        program[index].loc
+                                    );
                                     process::exit(1);
                                 }
                             };
@@ -290,21 +281,46 @@ impl<'a> Program<'a> {
                         "false" => push!(Op::PushInt(0)),
                         "print" => push!(Op::Print),
                         "puts" => push!(Op::Puts),
+                        "let" => {
+                            let_stack.push(Op::Bind(0));
+                            bindings.push(HashMap::new());
+                        }
+                        "in" => {
+                            match let_stack.pop() {
+                                Some(Op::Bind(count)) => {
+                                    ret_stack.push(program.len());
+                                    push!(Op::Bind(count));
+                                }
+                                _ => {
+                                    eprintln!("{loc}: `in` must close `let` bindings");
+                                    process::exit(1);
+                                }
+                            };
+                        }
                         "//" => continue 'lines,
                         "" => {}
-                        _ => {
-                            if let Some(index) = ret_stack.last() {
-                                if program[*index].op == Op::Let {
-                                    bindings.insert(word, bindings.len());
-                                    continue;
+                        w => {
+                            if let Some(Op::Bind(count)) = let_stack.pop() {
+                                let_stack.push(Op::Bind(count + 1));
+                                let count = bindings.iter().map(|map| map.len() as u64).sum();
+                                bindings.last_mut().unwrap().insert(w.to_string(), count);
+                            } else if let Some(index) =
+                                bindings.last().unwrap_or(&HashMap::new()).get(w)
+                            {
+                                push!(Op::PushBind(*index));
+                            } else if w.starts_with('\'') && w.ends_with('\'') {
+                                match w.len() {
+                                    3 => {
+                                        push!(Op::PushInt(w.chars().nth(1).unwrap() as u64));
+                                    }
+                                    _ => {
+                                        eprintln!("{loc}: Character literals must be only one char")
+                                    }
                                 }
-                                if let Some(index) = bindings.get(&word) {
-                                    push!(Op::PushBinding(bindings.len() - *index - 1));
-                                    continue;
-                                }
+                            } else {
+                                eprintln!("{}: Unknown word `{}` in program source", loc, word);
+                                process::exit(1);
                             }
-                            eprintln!("{}: Unknown word `{}` in program source", loc, word);
-                            process::exit(1);
                         }
                     }
                 }
@@ -316,15 +332,85 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn generate_fasm_x86_64(self) -> String {
+    pub fn generate_fasm_x86_64_linux(self) -> String {
         let program = self.program;
 
-        let mut outbuf = String::from(ASM_HEADER);
+        let mut outbuf = String::from(
+            "format ELF64 executable 3
+entry main
+segment readable executable
+print:
+  mov     r9, -3689348814741910323
+  sub     rsp, 40
+  mov     BYTE [rsp+31], 10
+  lea     rcx, [rsp+30]
+.L2:
+  mov     rax, rdi
+  lea     r8, [rsp+32]
+  mul     r9
+  mov     rax, rdi
+  sub     r8, rcx
+  shr     rdx, 3
+  lea     rsi, [rdx+rdx*4]
+  add     rsi, rsi
+  sub     rax, rsi
+  add     eax, 48
+  mov     BYTE [rcx], al
+  mov     rax, rdi
+  mov     rdi, rdx
+  mov     rdx, rcx
+  sub     rcx, 1
+  cmp     rax, 9
+  ja      .L2
+  lea     rax, [rsp+32]
+  mov     edi, 1
+  sub     rdx, rax
+  xor     eax, eax
+  lea     rsi, [rsp+32+rdx]
+  mov     rdx, r8
+  mov     rax, 1
+  syscall
+  add     rsp, 40
+  ret
+main:\n",
+        );
 
         let mut jump_target_count = 0;
 
         for (loc, op) in program.into_iter().map(|tok| (tok.loc, tok.op)) {
             match op {
+                Op::Bind(count) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Bind({}) - {loc}
+  mov rax, ret_stack_rsp
+  sub rax, {}
+  mov [ret_stack_rsp], rax
+",
+                            count,
+                            count * 8
+                        );
+                    for i in 0..count {
+                        outbuf = outbuf
+                            + &format!(
+                                "  pop rbx
+  mov [rax+{}], rbx
+",
+                                (count - 1 - i) * 8
+                            );
+                    }
+                }
+                Op::PushBind(index) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::PushBind({index}) - {loc}
+  mov rax, [ret_stack_rsp]
+  add rax, {}
+  push qword [rax]
+",
+                            index * 8
+                        )
+                }
                 Op::PushInt(val) => {
                     outbuf = outbuf
                         + &format!(
@@ -414,6 +500,19 @@ impl<'a> Program<'a> {
   push rbx
 ",
                             loc
+                        );
+                }
+                Op::Over => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Over - {loc}
+  pop rax
+  pop rbx
+  pop rcx
+  push rbx
+  push rax
+  push rcx
+"
                         );
                 }
                 Op::Equals => {
@@ -605,9 +704,12 @@ F{}:
                     Op::In => todo!("codegen for Op::In closing End"),
                     Op::While(None) => unreachable!(),
                     Op::Dup
+                    | Op::Bind(_)
+                    | Op::PushBind(_)
                     | Op::Drop
                     | Op::Equals
                     | Op::Swap
+                    | Op::Over
                     | Op::Neq
                     | Op::Not
                     | Op::GreaterThan
@@ -660,9 +762,109 @@ segment readable
             for b in s.as_bytes() {
                 write!(&mut s_bytes, "{b},").unwrap();
             }
-            outbuf += &format!("str_{i}: db {}\n", s_bytes.trim_end_matches(","))
+            outbuf += &format!("str_{i}: db {}\n", s_bytes.trim_end_matches(','))
         }
 
         outbuf
+            + "segment readable writable
+ret_stack_rsp: rq 1
+ret_stack: rb 65536
+ret_stack_end:
+"
+    }
+
+    pub fn generate_code_mos_6502_nesulator(self) -> [u8; 65536 - 0x4020] {
+        const NOP: u8 = 0xea;
+        const PHA: u8 = 0x48;
+        const PLA: u8 = 0x68;
+        const CLC: u8 = 0x18;
+        const SEC: u8 = 0x38;
+        const ADC_ZPG: u8 = 0x65;
+        const SBC_ZPG: u8 = 0xe5;
+        const LDA_IMM: u8 = 0xa9;
+        const LDA_ZPG: u8 = 0xa5;
+        const STA_ZPG: u8 = 0x85;
+        const BNE: u8 = 0xd0;
+        const CMP_IMM: u8 = 0xc9;
+        const CMP_ZPG: u8 = 0xc5;
+
+        let mut outbuf = vec![NOP; 65536 - 0x4020];
+        outbuf[0xfffc - 0x4020] = 0x20;
+        outbuf[0xfffd - 0x4020] = 0x40;
+
+        let mut pc: usize = 0x00;
+
+        let mut unclosed_ifs = Vec::new();
+        let mut unclosed_whiles = Vec::new();
+
+        for (loc, op) in self.program.into_iter().map(|tok| (tok.loc, tok.op)) {
+            let opcodes = match op {
+                Op::PushInt(val) => vec![LDA_IMM, val as u8, PHA],
+                Op::Plus => vec![PLA, STA_ZPG, 0x00, PLA, CLC, ADC_ZPG, 0x00, PHA],
+                Op::Minus => vec![PLA, STA_ZPG, 0x00, PLA, SEC, SBC_ZPG, 0x00, PHA],
+                Op::Drop => vec![PLA],
+                Op::Over => vec![
+                    PLA, STA_ZPG, 0x00, PLA, STA_ZPG, 0x01, PLA, STA_ZPG, 0x02, LDA_ZPG, 0x01, PHA,
+                    LDA_ZPG, 0x02, PHA, LDA_ZPG, 0x00, PHA,
+                ],
+                Op::Dup => vec![PLA, PHA, PHA],
+                Op::Neq => vec![
+                    PLA, STA_ZPG, 0x00, PLA, CMP_ZPG, 0x00, BNE, 0x09, LDA_IMM, 0x00, PHA, LDA_IMM,
+                    0x01, BNE, 0x05, LDA_IMM, 0x01, PHA,
+                ],
+                Op::Swap => vec![
+                    PLA, STA_ZPG, 0x00, PLA, STA_ZPG, 0x01, LDA_ZPG, 0x00, PHA, LDA_ZPG, 0x01, PHA,
+                ],
+                Op::If(_) => {
+                    unclosed_ifs.push(pc + 3);
+                    vec![PLA, CMP_IMM, 0x01, BNE, 0x00]
+                }
+                Op::While(_) => {
+                    unclosed_whiles.push(pc);
+                    vec![]
+                }
+                Op::End(op) => match *op {
+                    Op::If(_) => {
+                        let branch_index = unclosed_ifs
+                            .pop()
+                            .expect("`end` has no opening keyword in codegen!");
+                        outbuf[branch_index as usize + 1] = (pc - branch_index) as i8 as u8;
+                        vec![]
+                    }
+                    Op::While(_) => {
+                        let branch_index = unclosed_ifs
+                            .pop()
+                            .expect("`end` has no opening keyword in codegen!");
+                        outbuf[branch_index as usize + 1] = (pc + 4 - branch_index) as i8 as u8;
+
+                        let while_index = unclosed_whiles
+                            .pop()
+                            .expect("`endwhile` has no opening `while` in codegen!");
+
+                        vec![
+                            LDA_IMM,
+                            0x01,
+                            BNE,
+                            (while_index.wrapping_sub(pc)) as i8 as u8,
+                        ]
+                    }
+                    _ => todo!(),
+                },
+                op => {
+                    eprintln!("{loc}: `{op:?}` not implemented in codegen!");
+                    process::exit(1);
+                }
+            };
+            outbuf.splice(pc..pc + opcodes.len(), opcodes.iter().cloned());
+            pc += opcodes.len();
+        }
+
+        outbuf.try_into().unwrap_or_else(|v: Vec<u8>| {
+            panic!(
+                "Expected Vec of length {} but it was {}",
+                65536 - 0x4020,
+                v.len()
+            )
+        })
     }
 }

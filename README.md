@@ -1,6 +1,6 @@
 # porth-rs
 
-This is a Rust implementation of some of the most basic features of the [stack-based](https://en.wikipedia.org/wiki/Stack-oriented_programming), [concatenative](https://en.wikipedia.org/wiki/Concatenative_programming_language) programming language [Porth](https://gitlab.com/tsoding/porth) created by Tsoding/Rexim. The documented development of the original Porth can be found [here](https://www.youtube.com/playlist?list=PLpM-Dvs8t0VbMZA7wW9aR3EtBqe2kinu4).
+This is a Rust implementation of some of the features of the [stack-based](https://en.wikipedia.org/wiki/Stack-oriented_programming), [concatenative](https://en.wikipedia.org/wiki/Concatenative_programming_language) programming language [Porth](https://gitlab.com/tsoding/porth) created by Tsoding/Rexim. The documented development of the original Porth can be found [here](https://www.youtube.com/playlist?list=PLpM-Dvs8t0VbMZA7wW9aR3EtBqe2kinu4).
 
 ## Usage
 
@@ -12,18 +12,26 @@ ARGS:
     <FILE>    Input file
 
 OPTIONS:
-    -h, --help    Print help information
-    -r, --run     Run the program after successful compilation
+    -h, --help               Print help information
+    -o, --out <FILE>         Output file
+    -r, --run                Run the program after successful compilation
+    -t, --target <TARGET>    Target architecture [default: x86_64-linux]
 ```
+
+### Targets
+- `x86_64-linux`\*
+- `x86_64-fasm`
+- [`mos_6502-nesulator`](https://github.com/Piturnah/nesulator)
+
+\* Requires [fasm](https://flatassembler.net/download.php) on path (on most package managers)
 
 ## Example Usage
 
 The file provided will be compiled into x86-64 fasm which will be written to `./out.asm` and can then be compiled to an executable binary with [fasm](https://flatassembler.net/)
 
 ```console
-$ cargo run -- -r tests/if.porth
-true
-also true
+$ cargo run -- -r tests/puts.porth
+hello, world!
 ```
 
 ## Documentation
@@ -34,29 +42,27 @@ also true
 
 Push a u64 onto the stack
 
-**Example:** Push the integer 42 onto the stack
-
 ```
+42 print
+0x2a print
+0o52 print
+0b101010 print
+```
+
+```console
 42
-```
-
-**Example** Hex literals are parsed too
-
-```
-0xff
+42
+42
+42
 ```
 
 #### String Literals
 
 String literals are pushed to the stack as a count followed by a pointer.
 
-**Example**
-
 ```
 "Hello, world!" print print
 ```
-
-**Output**
 
 ```console
 4198733
@@ -69,13 +75,9 @@ String literals are pushed to the stack as a count followed by a pointer.
 
 Pops from the stack and sends to stdout as u64.
 
-**Example**
-
 ```
 42 print
 ```
-
-**Output**
 
 ```console
 42
@@ -85,13 +87,9 @@ Pops from the stack and sends to stdout as u64.
 
 Pops a pointer and count from the stack and prints the string at the pointer to stdout.
 
-**Example**
-
 ```
 "Hello, world!\n" puts
 ```
-
-**Output**
 
 ```console
 Hello, world!
@@ -99,17 +97,32 @@ Hello, world!
 
 ### Stack Manipulation
 
+#### let
+
+Bind arbitrary number of stack elements to names
+
+```
+1 2 3
+let a b c in
+  a print
+  b print
+  c print
+end
+```
+
+```console
+1
+2
+3
+```
+
 #### drop
 
 Drops one element from the stack
 
-**Example**
-
 ```
 42 84 drop print
 ```
-
-**Output**
 
 ```console
 42
@@ -119,13 +132,10 @@ Drops one element from the stack
 
 Swaps the two elements at the top of the stack
 
-**Example**
 
 ```
 42 84 swap print print
 ```
-
-**Output**
 
 ```console
 42
@@ -136,13 +146,9 @@ Swaps the two elements at the top of the stack
 
 Duplicates the element at the top of the stack
 
-**Example**
-
 ```
 42 dup print print
 ```
-
-**Output**
 
 ```console
 42
@@ -155,13 +161,9 @@ Duplicates the element at the top of the stack
 
 Pops two elements from the stack, pushes the result of adding them
 
-**Example**
-
 ```
 20 21 + print
 ```
-
-**Output**
 
 ```console
 42
@@ -171,13 +173,9 @@ Pops two elements from the stack, pushes the result of adding them
 
 Pops `a` then `b` from the stack, pushes the result of `b - a`
 
-**Example**
-
 ```
 60 18 - print
 ```
-
-**Output**
 
 ```console
 42
@@ -189,8 +187,6 @@ Pops `a` then `b` from the stack, pushes the result of `b - a`
 
 Pops from stack. If `true`, execute `<branch>`, else go to `end`.
 
-**Example**
-
 ```
 true if
   42 print
@@ -201,8 +197,6 @@ false if
 end
 ```
 
-**Output**
-
 ```console
 42
 ```
@@ -211,16 +205,12 @@ end
 
 While `<condition>` is `true`, execute `branch`.
 
-**Example**
-
 ```
 0 while 1 + dup 6 < do
   dup print
 end
 drop
 ```
-
-**Output**
 
 ```console
 1
@@ -244,13 +234,9 @@ Pushes `0` onto the stack.
 
 Pops `a` and `b` from stack, pushes boolean result of `a == b`
 
-**Example**
-
 ```
 3 3 = print
 ```
-
-**Output**
 
 ```console
 1
@@ -260,13 +246,9 @@ Pops `a` and `b` from stack, pushes boolean result of `a == b`
 
 Pops `a` and `b` from stack, pushes boolean result of `a != b`
 
-**Example**
-
 ```
 3 3 != print
 ```
-
-**Output**
 
 ```console
 0
@@ -288,15 +270,11 @@ Pops `a` and `b`, pushes `1` if one of `a` and `b` is `1`, `0` otherwise.
 
 Pops `a` then `b`, pushes `1` if `b < a`, `0` otherwise.
 
-**Example**
-
 ```
 1 2 < if
   42 print
 end
 ```
-
-**Output**
 
 ```console
 42
