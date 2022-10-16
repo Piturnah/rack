@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fmt::{self, Write},
     process,
 };
@@ -71,10 +72,13 @@ impl fmt::Display for Loc<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Op {
     PushInt(u64),
     PushStrPtr(usize),
+    PushBinding(usize),
+    Let,
+    In,
     Plus,
     Minus,
     Dup,
@@ -103,6 +107,7 @@ impl<'a> Program<'a> {
     pub fn parse(source: &str, path: &'a str) -> Self {
         let mut program: Vec<Token> = Vec::new();
         let mut ret_stack: Vec<usize> = Vec::new();
+        let mut bindings: HashMap<String, usize> = HashMap::new();
         let mut jmp_count = 0;
 
         let mut string_literals: Vec<String> = Vec::new();
@@ -233,6 +238,22 @@ impl<'a> Program<'a> {
                                 _ => unreachable!(),
                             }
                         }
+                        "let" => {
+                            ret_stack.push(program.len());
+                            bindings = HashMap::new();
+                            push!(Op::Let);
+                        }
+                        "in" => {
+                            if let Some(index) = ret_stack.pop() {
+                                if program[index].op == Op::Let {
+                                    ret_stack.push(program.len());
+                                    push!(Op::In);
+                                    continue;
+                                }
+                            }
+                            eprintln!("{loc}: `in` must close `let` binding");
+                            process::exit(1);
+                        }
                         "end" => {
                             let index = match ret_stack.pop() {
                                 Some(index) => index,
@@ -258,7 +279,11 @@ impl<'a> Program<'a> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                _ => unreachable!(),
+                                Op::In => {}
+                                op => {
+                                    eprintln!("{loc}: `end` keyword doesn't support closing `{op:?}` blocks");
+                                    process::exit(1);
+                                }
                             };
                         }
                         "true" => push!(Op::PushInt(1)),
@@ -268,6 +293,16 @@ impl<'a> Program<'a> {
                         "//" => continue 'lines,
                         "" => {}
                         _ => {
+                            if let Some(index) = ret_stack.last() {
+                                if program[*index].op == Op::Let {
+                                    bindings.insert(word, bindings.len());
+                                    continue;
+                                }
+                                if let Some(index) = bindings.get(&word) {
+                                    push!(Op::PushBinding(bindings.len() - *index - 1));
+                                    continue;
+                                }
+                            }
                             eprintln!("{}: Unknown word `{}` in program source", loc, word);
                             process::exit(1);
                         }
@@ -307,6 +342,22 @@ impl<'a> Program<'a> {
   push str_{0}
 ",
                             index, loc
+                        );
+                }
+                Op::PushBinding(index) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::PushBinding({0}) - {1}
+  mov rbx, rsp
+  mov rsp, r9
+  add rsp, {2}
+  pop rax
+  mov rsp, rbx
+  push rax
+",
+                            index,
+                            loc,
+                            index * 8,
                         );
                 }
                 Op::Plus => {
@@ -551,6 +602,7 @@ F{}:
                         }
                         _ => unreachable!(),
                     },
+                    Op::In => todo!("codegen for Op::In closing End"),
                     Op::While(None) => unreachable!(),
                     Op::Dup
                     | Op::Drop
@@ -566,6 +618,8 @@ F{}:
                     | Op::Puts
                     | Op::PushInt(_)
                     | Op::PushStrPtr(_)
+                    | Op::PushBinding(_)
+                    | Op::Let
                     | Op::Or
                     | Op::And
                     | Op::End(_) => unreachable!("End block cannot close `{:?}`", op),
@@ -585,6 +639,15 @@ F{}:
 "
                         )
                 }
+                Op::Let => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Let - {loc}
+  mov r9, rsp
+"
+                        )
+                }
+                Op::In => outbuf = outbuf + &format!("  ;; Op::In\n"),
             };
         }
         outbuf += "  mov rax, 60
