@@ -287,11 +287,3 @@ Pops `a` then `b`, pushes `1` if `b > a`, `0` otherwise. See `<`.
 ### Comments
 
 Comments are denoted by `//`. Must be separated by space. e.g `1 // comment`
-
-## Disclaimer
-
-The original author has expressed frustrations with competing compilers. I would like to say that I am a big fan of the Tsoding project, and the work in this repository is merely a reflection of that and does not have any aims of competition. It was created for the joy of programming while I am learning about ideas in compiler development.
-
-The code in this repository was written a couple of months before publishing, however I decided to publish it in the end as the original Porth code is licensed under MIT and, like I said, there is no aim to compete.
-
-If I continue to work on this then it will very likely diverge from the original project.
