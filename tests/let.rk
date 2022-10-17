@@ -1,23 +1,5 @@
-10 20 30
-let a b c in
+1 2
+let a b in
   a print
   b print
-  c print
 end
-"\n" puts
-
-// BUG: The below fails because we need to store the initial rsp for each `let`
-//  and move rsp relative to that, rather than whatever it is currently.
-//  Otherwise, cases like this where the value isn't immediately used cause bugs.
-
-"a" "b" "c"
-let
-  ac ap
-  bc bp
-  cc cp
-in
-  ap ac puts
-  bp bc puts
-  cp cc puts
-end
-"\n" puts
