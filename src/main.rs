@@ -1,5 +1,5 @@
 use clap::Parser;
-use compiler::Program;
+use rackc::Program;
 use std::{
     error::Error,
     fmt, fs,
