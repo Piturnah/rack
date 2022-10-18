@@ -181,6 +181,47 @@ Pops `a` then `b` from the stack, pushes the result of `b - a`
 42
 ```
 
+#### /
+
+Pops `a` then `b` from the stack, pushes the result of `b / a`
+
+```
+10 2 / print
+```
+
+```console
+5
+```
+
+#### %
+
+Pops `a` then `b` from the stack, pushes the result of `b % a`
+
+```
+10 4 % print
+```
+
+```console
+2
+```
+
+#### divmod
+
+Pops `a` then `b`, pushes the result of `b / a` then `b % a`
+
+```
+10 3 divmod 
+let quotient remainder in
+  quotient print
+  remainder print
+end
+```
+
+```console
+3
+1
+```
+
 ### Control Flow
 
 #### if \<branch> end

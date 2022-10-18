@@ -1,0 +1,12 @@
+// Program to count the number of digits in an int
+
+123918 // Number to count digits of
+
+1 swap while 10 / dup 0 > do
+  let count remaining in
+    count 1 +
+    remaining 
+  end
+end drop
+
+"Num digits: " puts print
