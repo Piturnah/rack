@@ -40,6 +40,7 @@ pub enum Op {
     PushStrPtr(usize),
     Plus,
     Minus,
+    DivMod,
     Dup,
     Drop,
     Swap,
@@ -141,9 +142,9 @@ impl<'a> Program<'a> {
             for (col, word) in ws {
                 let loc = Loc::new(path, row + 1, col + 1);
                 macro_rules! push {
-                    ($op:expr) => {
-                        program.push(Token::new($op, loc))
-                    };
+                    ($($op:expr),+) => {{
+                        $(program.push(Token::new($op, loc)));+
+                    }};
                 }
 
                 if let Ok(val) = word.parse::<u64>() {
@@ -182,6 +183,9 @@ impl<'a> Program<'a> {
                     match &word[..] {
                         "+" => push!(Op::Plus),
                         "-" => push!(Op::Minus),
+                        "divmod" => push!(Op::DivMod),
+                        "/" => push!(Op::DivMod, Op::Drop),
+                        "%" => push!(Op::DivMod, Op::Swap, Op::Drop),
                         "dup" => push!(Op::Dup),
                         "drop" => push!(Op::Drop),
                         "swap" => push!(Op::Swap),
@@ -434,6 +438,19 @@ main:\n",
                             loc
                         );
                 }
+                Op::DivMod => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::DivMod - {loc}
+  pop rbx
+  pop rax
+  mov rdx, 0
+  div rbx
+  push rax
+  push rdx
+",
+                        );
+                }
                 Op::Dup => {
                     outbuf = outbuf
                         + &format!(
@@ -679,6 +696,7 @@ F{}:
                     | Op::LessThan
                     | Op::Minus
                     | Op::Plus
+                    | Op::DivMod
                     | Op::Print
                     | Op::Puts
                     | Op::PushInt(_)
