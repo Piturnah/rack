@@ -35,7 +35,7 @@ impl FromStr for Target {
     type Err = TargetNotFoundError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_lowercase().as_str() {
             "x86_64-linux" => Ok(Self::X86_64_Linux),
             "x86_64-fasm" => Ok(Self::X86_64_FASM),
             "mos_6502-nesulator" => Ok(Self::Mos6502_Nesulator),
