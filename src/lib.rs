@@ -672,7 +672,7 @@ F{}:
                         Op::If(Some(id)) => {
                             outbuf = outbuf
                                 + &format!(
-                                    " ;; Op::End(While) - {loc}
+                                    "  ;; Op::End(While) - {loc}
   jmp F{}
 F{}:
 ",
