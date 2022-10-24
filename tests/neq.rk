@@ -1,15 +1,17 @@
-// Should get `0 1 1 0`
-false false != print
-false true != print
-true false != print
-true true != print
-
-// Should get nothing
-5 5 != if
-  13 print
-end
-
-// Should get 100
-5 4 != if
-  100 print
+fn main in
+  // Should get `0 1 1 0`
+  false false != print
+  false true != print
+  true false != print
+  true true != print
+  
+  // Should get nothing
+  5 5 != if
+    13 print
+  end
+  
+  // Should get 100
+  5 4 != if
+    100 print
+  end
 end

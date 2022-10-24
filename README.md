@@ -30,11 +30,29 @@ OPTIONS:
 The file provided will be compiled into x86-64 fasm which will be written to `./out.asm` and can then be compiled to an executable binary with [fasm](https://flatassembler.net/)
 
 ```console
-$ cargo run -- -r tests/puts.rk
+$ cargo run -- examples/hello.rk -r
 hello, world!
 ```
 
 ## Documentation
+
+### Functions
+
+Rack code goes inside a function, declared as follows:
+
+```
+fn foo in
+  // do some stuff
+end
+```
+
+You can call it by using the function's name:
+
+```
+fn main in
+  foo
+end
+```
 
 ### Data
 

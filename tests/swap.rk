@@ -1,2 +1,4 @@
-5 10 print print
-5 10 swap print print
+fn main in 
+  5 10 print print
+  5 10 swap print print
+end

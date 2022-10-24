@@ -1,4 +1,5 @@
-10 5 / print
-10 5 % print
-10 divmod 4 print print
-
+fn main in
+  10 5 / print
+  10 5 % print
+  10 4 divmod print print
+end

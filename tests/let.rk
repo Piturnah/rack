@@ -1,5 +1,16 @@
-1 2
-let a b in
-  a print
-  b print
+// 1 2 1 3 2
+
+fn main in
+  1 2
+  let a b in
+    a print
+
+    3 4 let c d in
+      b print
+      a print
+      c print
+    end
+
+    b print
+  end
 end

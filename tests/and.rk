@@ -1,15 +1,17 @@
-true true and if
-  1 print
-end
-
-true false and if
-  0 print
-end
-
-false true and if
-  0 print
-end
-
-false false and if
-  0 print
+fn main in
+  true true and if
+    "success!\n" puts
+  end
+  
+  true false and if
+    "failure\n" puts
+  end
+  
+  false true and if
+    "failure\n" puts
+  end
+  
+  false false and if
+    "failure\n" puts
+  end
 end

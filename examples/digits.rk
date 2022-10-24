@@ -1,12 +1,26 @@
 // Program to count the number of digits in an int
 
-123918 // Number to count digits of
+// int -- int
+fn digits in
+  1 swap while 10 / dup 0 > do
+    let count remaining in
+      count 1 +
+      remaining
+    end
+  end drop
+end
 
-1 swap while 10 / dup 0 > do
-  let count remaining in
-    count 1 +
-    remaining 
-  end
-end drop
+// int --
+fn show_digits in
+  "Number of digits: " puts
+  digits print
+end
 
-"Num digits: " puts print
+// --
+fn main in
+  8    show_digits 
+  13   show_digits 
+  1234 show_digits
+  67   show_digits
+  999  show_digits
+end

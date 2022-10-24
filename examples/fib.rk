@@ -1,0 +1,21 @@
+// Returns the nth 0-indexed fibonacci number
+//
+// int -- int
+fn fib in
+  let n in
+    n 0 = n 1 = or if
+      n 
+    end
+
+    n 0 != n 1 != and if
+      n 2 - fib n 1 - fib +
+    end
+  end
+end
+
+// --
+fn main in
+  5 fib print
+  9 fib print
+end
+

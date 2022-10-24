@@ -56,12 +56,17 @@ pub enum Op {
     While(Option<Box<Op>>),
     End(Box<Op>),
     Print,
-    Puts,          // Later move to stdlib?
-    Bind(u64),     // number of variables to bind
-    PushBind(u64), // index of binding to push
+    Func(usize), // usize -- jump index
+    CallFn(usize),
+    Ret,
+    Puts,            // Later move to stdlib?
+    Bind(u64),       // number of variables to bind
+    PushBind(usize), // index of binding to push
+    Unbind(u64),
 }
 
 pub struct Program<'a> {
+    entry: usize, // jmp index of the FN to jump to at entry
     program: Vec<Token<'a>>,
     string_literals: Vec<String>,
 }
@@ -69,13 +74,22 @@ pub struct Program<'a> {
 impl<'a> Program<'a> {
     pub fn parse(source: &str, path: &'a str) -> Self {
         let mut program: Vec<Token> = Vec::new();
+
+        // lets, whiles, ifs
+        // contains indexes into `program` that we need to jump back into
         let mut ret_stack: Vec<usize> = Vec::new();
+
+        // increments with each thing we may need to jump to in codegen
         let mut jmp_count = 0;
 
         let mut let_stack: Vec<Op> = Vec::new();
-        let mut bindings: Vec<HashMap<String, u64>> = Vec::new();
+        let mut bindings: Vec<Vec<String>> = Vec::new();
 
         let mut string_literals: Vec<String> = Vec::new();
+
+        //                          name    jmp
+        let mut functions: HashMap<String, usize> = HashMap::new();
+        let mut parsing_function_def: bool = false;
 
         'lines: for (row, line) in source.lines().enumerate() {
             // I think this implementation of getting the col of each word is kind of ugly
@@ -201,6 +215,9 @@ impl<'a> Program<'a> {
                             ret_stack.push(program.len());
                             push!(Op::If(None));
                         }
+                        "fn" => {
+                            parsing_function_def = true;
+                        }
                         "while" => {
                             ret_stack.push(program.len());
                             push!(Op::While(None));
@@ -248,8 +265,12 @@ impl<'a> Program<'a> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                Op::Bind(_) => {
+                                Op::Bind(count) => {
                                     bindings.pop();
+                                    push!(Op::Unbind(*count));
+                                }
+                                Op::Func(_) => {
+                                    push!(Op::Ret);
                                 }
                                 op => {
                                     eprintln!("{loc}: `end` tried to close `{op:?}`.");
@@ -267,7 +288,7 @@ impl<'a> Program<'a> {
                         "puts" => push!(Op::Puts),
                         "let" => {
                             let_stack.push(Op::Bind(0));
-                            bindings.push(HashMap::new());
+                            bindings.push(Vec::new());
                         }
                         "in" => {
                             match let_stack.pop() {
@@ -276,8 +297,14 @@ impl<'a> Program<'a> {
                                     push!(Op::Bind(count));
                                 }
                                 _ => {
-                                    eprintln!("{loc}: `in` must close `let` bindings");
-                                    process::exit(1);
+                                    if parsing_function_def {
+                                        ret_stack.push(program.len());
+                                        push!(Op::Func(functions.len() - 1));
+                                        parsing_function_def = false;
+                                    } else {
+                                        eprintln!("{loc}: `in` must close `let` bindings or function definitions.");
+                                        process::exit(1);
+                                    }
                                 }
                             };
                         }
@@ -286,12 +313,12 @@ impl<'a> Program<'a> {
                         w => {
                             if let Some(Op::Bind(count)) = let_stack.pop() {
                                 let_stack.push(Op::Bind(count + 1));
-                                let count = bindings.iter().map(|map| map.len() as u64).sum();
-                                bindings.last_mut().unwrap().insert(w.to_string(), count);
+
+                                bindings.last_mut().unwrap().push(w.to_string());
                             } else if let Some(index) =
-                                bindings.last().unwrap_or(&HashMap::new()).get(w)
+                                bindings.iter().flatten().rev().position(|x| x == w)
                             {
-                                push!(Op::PushBind(*index));
+                                push!(Op::PushBind(index));
                             } else if w.starts_with('\'') && w.ends_with('\'') {
                                 match w.len() {
                                     3 => {
@@ -301,6 +328,10 @@ impl<'a> Program<'a> {
                                         eprintln!("{loc}: Character literals must be only one char")
                                     }
                                 }
+                            } else if parsing_function_def {
+                                functions.insert(w.to_string(), functions.len());
+                            } else if let Some(jmp_index) = functions.get(w) {
+                                push!(Op::CallFn(*jmp_index));
                             } else {
                                 eprintln!("{}: Unknown word `{}` in program source", loc, word);
                                 process::exit(1);
@@ -311,6 +342,14 @@ impl<'a> Program<'a> {
             }
         }
         Self {
+            entry: *functions
+                .iter()
+                .find(|(name, _)| *name == "main")
+                .map(|(_, index)| index)
+                .unwrap_or_else(|| {
+                    eprintln!("[ERROR] No entry point `main` found.");
+                    process::exit(1);
+                }),
             program,
             string_literals,
         }
@@ -356,18 +395,52 @@ print:
   syscall
   add     rsp, 40
   ret
-main:\n",
+",
         );
 
         let mut jump_target_count = 0;
 
-        for (loc, op) in program.into_iter().map(|tok| (tok.loc, tok.op)) {
+        for (i, (loc, op)) in program.into_iter().map(|tok| (tok.loc, tok.op)).enumerate() {
             match op {
+                Op::Func(index) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Func({index}) - {loc}
+FN{index}:
+"
+                        );
+                }
+                Op::CallFn(index) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;;  Op::CallFn({index}) - {loc}
+  mov rax, [ret_stack_rsp]
+  sub rax, 8
+  mov [ret_stack_rsp], rax
+  mov qword [rax], RET{i}
+  jmp FN{index}
+RET{i}:
+  mov rax, [ret_stack_rsp]
+  add rax, 8
+  mov [ret_stack_rsp], rax
+"
+                        );
+                }
+                Op::Ret => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Ret - {loc}
+  mov rax, [ret_stack_rsp]
+  mov rax, [rax]
+  jmp rax
+"
+                        );
+                }
                 Op::Bind(count) => {
                     outbuf = outbuf
                         + &format!(
                             "  ;; Op::Bind({}) - {loc}
-  mov rax, ret_stack_rsp
+  mov rax, [ret_stack_rsp]
   sub rax, {}
   mov [ret_stack_rsp], rax
 ",
@@ -380,9 +453,20 @@ main:\n",
                                 "  pop rbx
   mov [rax+{}], rbx
 ",
-                                (count - 1 - i) * 8
+                                i * 8
                             );
                     }
+                }
+                Op::Unbind(count) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::Unbind({count}) - {loc}
+  mov rax, [ret_stack_rsp]
+  add rax, {}
+  mov qword [ret_stack_rsp], rax
+",
+                            count * 8
+                        );
                 }
                 Op::PushBind(index) => {
                     outbuf = outbuf
@@ -686,8 +770,12 @@ F{}:
                     Op::Dup
                     | Op::Bind(_)
                     | Op::PushBind(_)
+                    | Op::Unbind(_)
                     | Op::Drop
                     | Op::Equals
+                    | Op::Func(_)
+                    | Op::CallFn(_)
+                    | Op::Ret
                     | Op::Swap
                     | Op::Over
                     | Op::Neq
@@ -722,11 +810,21 @@ F{}:
                 }
             };
         }
-        outbuf += "  mov rax, 60
+        outbuf += &format!(
+            "main:
+  mov rax, ret_stack_rsp
+  sub rax, 8
+  mov qword [ret_stack_rsp], rax
+  mov qword [rax], RET_MAIN
+  call FN{}
+RET_MAIN:
+  mov rax, 60
   mov rdi, 0
   syscall
 segment readable
-";
+",
+            self.entry,
+        );
         for (i, s) in self.string_literals.iter().enumerate() {
             let mut s_bytes = String::new();
             for b in s.as_bytes() {

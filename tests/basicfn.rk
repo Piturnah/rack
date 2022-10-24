@@ -1,0 +1,3 @@
+fn test_fn in end // can we ret successfully
+
+fn main in "hello world\n" puts test_fn "success!\n" puts end

@@ -1,11 +1,13 @@
-1 2 > if
-  0 print
-end
-
-2 1 > if
-  1 print
-end
-
-2 2 > if
-  0 print
+fn main in
+  1 2 > if
+    0 print
+  end
+  
+  2 1 > if
+    "success!\n" puts
+  end
+  
+  2 2 > if
+    0 print
+  end
 end

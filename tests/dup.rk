@@ -1,1 +1,1 @@
-10 dup print print
+fn main in 10 dup print print end

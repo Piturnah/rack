@@ -1,19 +1,21 @@
 // program should print "true" and "also true"
 // but never print "false"
 
-50 8 - 42 = if
-  "true\n" puts
-
-  true if
-     false if
-       "false\n" puts
-     end
-
-     "also true\n" puts
+fn main in
+  50 8 - 42 = if
+    "true\n" puts
+  
+    true if
+       false if
+         "false\n" puts
+       end
+  
+       "also true\n" puts
+    end
+  
+    8 2 = if
+      "false\n" puts
+    end
+  
   end
-
-  8 2 = if
-    "false\n" puts
-  end
-
 end

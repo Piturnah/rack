@@ -1,13 +1,15 @@
 // Nested loops require a `drop`
 // Since otherwise the original number is left on the stack
 
-100 while 1 - dup 0 > do
-  0 while 1 + dup 5 < do
-    8 print
-  end drop
-  50 1 + 78 27 - = true and if
-    false 8 3 > or if
-      42 print
+fn main in
+  100 while 1 - dup 0 > do
+    0 while 1 + dup 5 < do
+      8 print
+    end drop
+    50 1 + 78 27 - = true and if
+      false 8 3 > or if
+        42 print
+      end
     end
   end
 end
