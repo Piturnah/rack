@@ -8,10 +8,7 @@ fn streq in
     str1c str2c != if false ret end
   end
 
-  // drop unused count
-  let _ a b c in a b c end
-
-  let str1v count str2v in
+  let _ str1v count str2v in
     0 1 - // -1u64
     while 1 + dup count < do
       dup dup str1v + @ swap str2v + @ != if
