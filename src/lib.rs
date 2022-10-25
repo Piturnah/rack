@@ -52,17 +52,18 @@ pub enum Op {
     LessThan,
     Or,
     And,
+    ReadByte,
     If(Option<usize>),
     While(Option<Box<Op>>),
     End(Box<Op>),
     Print,
     Func(usize), // usize -- jump index
     CallFn(usize),
-    Ret,
-    Puts,            // Later move to stdlib?
-    Bind(u64),       // number of variables to bind
-    PushBind(usize), // index of binding to push
-    Unbind(u64),
+    Ret(usize),        // the number of stack frames to drop
+    Puts,              // Later move to stdlib?
+    Bind(usize, bool), // (number of variables to bind, are we peeking)
+    PushBind(usize),   // index of binding to push
+    Unbind(usize),
 }
 
 pub struct Program<'a> {
@@ -211,6 +212,7 @@ impl<'a> Program<'a> {
                         "<" => push!(Op::LessThan),
                         "or" => push!(Op::Or),
                         "and" => push!(Op::And),
+                        "@" => push!(Op::ReadByte),
                         "if" => {
                             ret_stack.push(program.len());
                             push!(Op::If(None));
@@ -218,6 +220,7 @@ impl<'a> Program<'a> {
                         "fn" => {
                             parsing_function_def = true;
                         }
+                        "ret" => push!(Op::Ret(bindings.iter().flatten().count())),
                         "while" => {
                             ret_stack.push(program.len());
                             push!(Op::While(None));
@@ -265,12 +268,12 @@ impl<'a> Program<'a> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                Op::Bind(count) => {
+                                Op::Bind(count, _) => {
                                     bindings.pop();
                                     push!(Op::Unbind(*count));
                                 }
                                 Op::Func(_) => {
-                                    push!(Op::Ret);
+                                    push!(Op::Ret(0));
                                 }
                                 op => {
                                     eprintln!("{loc}: `end` tried to close `{op:?}`.");
@@ -287,14 +290,18 @@ impl<'a> Program<'a> {
                         "print" => push!(Op::Print),
                         "puts" => push!(Op::Puts),
                         "let" => {
-                            let_stack.push(Op::Bind(0));
+                            let_stack.push(Op::Bind(0, false));
+                            bindings.push(Vec::new());
+                        }
+                        "peek" => {
+                            let_stack.push(Op::Bind(0, true));
                             bindings.push(Vec::new());
                         }
                         "in" => {
                             match let_stack.pop() {
-                                Some(Op::Bind(count)) => {
+                                Some(Op::Bind(count, is_peek)) => {
                                     ret_stack.push(program.len());
-                                    push!(Op::Bind(count));
+                                    push!(Op::Bind(count, is_peek));
                                 }
                                 _ => {
                                     if parsing_function_def {
@@ -302,7 +309,7 @@ impl<'a> Program<'a> {
                                         push!(Op::Func(functions.len() - 1));
                                         parsing_function_def = false;
                                     } else {
-                                        eprintln!("{loc}: `in` must close `let` bindings or function definitions.");
+                                        eprintln!("{loc}: `in` must close `let`/`peek` bindings or function definitions.");
                                         process::exit(1);
                                     }
                                 }
@@ -311,8 +318,8 @@ impl<'a> Program<'a> {
                         "//" => continue 'lines,
                         "" => {}
                         w => {
-                            if let Some(Op::Bind(count)) = let_stack.pop() {
-                                let_stack.push(Op::Bind(count + 1));
+                            if let Some(Op::Bind(count, is_peek)) = let_stack.pop() {
+                                let_stack.push(Op::Bind(count + 1, is_peek));
 
                                 bindings.last_mut().unwrap().push(w.to_string());
                             } else if let Some(index) =
@@ -426,17 +433,20 @@ RET{i}:
 "
                         );
                 }
-                Op::Ret => {
+                Op::Ret(count) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Ret - {loc}
+                            "  ;; Op::Ret({count}) - {loc}
   mov rax, [ret_stack_rsp]
+  add rax, {}
+  mov qword [ret_stack_rsp], rax
   mov rax, [rax]
   jmp rax
-"
+",
+                            count * 8
                         );
                 }
-                Op::Bind(count) => {
+                Op::Bind(count, is_peek) => {
                     outbuf = outbuf
                         + &format!(
                             "  ;; Op::Bind({}) - {loc}
@@ -450,11 +460,14 @@ RET{i}:
                     for i in 0..count {
                         outbuf = outbuf
                             + &format!(
-                                "  pop rbx
-  mov [rax+{}], rbx
+                                "  mov rbx, [rsp + {0}]
+  mov [rax+{0}], rbx
 ",
                                 i * 8
                             );
+                    }
+                    if !is_peek {
+                        outbuf = outbuf + &format!("  add rsp, {}\n", count * 8);
                     }
                 }
                 Op::Unbind(count) => {
@@ -710,6 +723,17 @@ J{1}:
                         );
                     jump_target_count += 2;
                 }
+                Op::ReadByte => {
+                    outbuf = outbuf
+                        + &format!(
+                            "  ;; Op::ReadByte - {loc}
+  pop rbx
+  mov rax, 0
+  mov al, byte [rbx]
+  push rax
+"
+                        );
+                }
                 Op::If(Some(jump_to)) => {
                     outbuf = outbuf
                         + &format!(
@@ -768,14 +792,15 @@ F{}:
                     },
                     Op::While(None) => unreachable!(),
                     Op::Dup
-                    | Op::Bind(_)
+                    | Op::Bind(_, _)
                     | Op::PushBind(_)
                     | Op::Unbind(_)
                     | Op::Drop
                     | Op::Equals
                     | Op::Func(_)
                     | Op::CallFn(_)
-                    | Op::Ret
+                    | Op::ReadByte
+                    | Op::Ret(_)
                     | Op::Swap
                     | Op::Over
                     | Op::Neq

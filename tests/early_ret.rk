@@ -1,0 +1,13 @@
+// takes int, returns 0 if given 0x12
+//            else ret 1
+fn foo in
+  0x12 = if
+    0 ret
+  end
+  1
+end
+
+fn main in
+  1 foo print
+  0x12 foo print
+end

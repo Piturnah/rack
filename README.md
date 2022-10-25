@@ -54,7 +54,7 @@ fn main in
 end
 ```
 
-### Data
+Early return is achieved with `ret` keyword.
 
 #### PushInt
 
@@ -132,6 +132,22 @@ end
 1
 2
 3
+```
+
+#### peek
+
+Like `let`, but the elements remain on the stack.
+
+```
+1 2 3
+peek a b c in end
+print print print
+```
+
+```console
+3
+2
+1
 ```
 
 #### drop
@@ -342,6 +358,20 @@ end
 #### >
 
 Pops `a` then `b`, pushes `1` if `b > a`, `0` otherwise. See `<`.
+
+### Memory
+
+#### @
+
+Reads a single byte from memory at the address stored on the stack.
+
+```
+"hello" @ print
+```
+
+```console
+104
+```
 
 ### Comments
 

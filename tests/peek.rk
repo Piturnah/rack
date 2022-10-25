@@ -1,0 +1,5 @@
+fn main in
+  1 2 peek a b in a print b print a print end 
+  "---------------\n" puts
+  print print
+end

@@ -1,0 +1,31 @@
+// `streq` tests for equality of the two input strings.
+
+// int ptr int ptr -- int
+fn streq in
+  let str1c str1v str2c str2v in
+    // Early return if strings not equal
+    str1c str2c != if false ret end
+
+    // drop unused count
+    str1v str2c str2v
+  end
+
+  let str1v count str2v in
+    0 1 - // -1u64
+    while 1 + dup count < do
+      dup dup str1v + @ swap str2v + @ != if
+        // we found some bytes not equal!
+        drop false ret
+      end
+    end drop
+  end
+
+  true
+end
+
+fn main in
+  "test1" "test2" streq if "1st EQUAL\n" puts end
+  "test" "test"   streq if "2nd EQUAL\n" puts end
+  "abcde" "abcde" streq if "3rd EQUAL\n" puts end
+  "abcdf" "abcde" streq if "4th EQUAL\n" puts end
+end

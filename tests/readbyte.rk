@@ -1,0 +1,6 @@
+fn main in
+  "test" dup @ print
+  dup 1 + @ print
+  dup 2 + @ print
+  dup 3 + @ print
+end
