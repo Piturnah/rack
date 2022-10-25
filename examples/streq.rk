@@ -2,13 +2,14 @@
 
 // int ptr int ptr -- int
 fn streq in
-  let str1c str1v str2c str2v in
-    // Early return if strings not equal
-    str1c str2c != if false ret end
 
-    // drop unused count
-    str1v str2c str2v
+  // early return if strings not equal
+  peek str1c _ str2c _ in
+    str1c str2c != if false ret end
   end
+
+  // drop unused count
+  let _ a b c in a b c end
 
   let str1v count str2v in
     0 1 - // -1u64
