@@ -58,16 +58,18 @@ Early return is achieved with `ret` keyword.
 
 #### PushInt
 
-Push a u64 onto the stack
+Push a u64 onto the stack.
 
 ```
-42 print
-0x2a print
-0o52 print
+42       print
+0x2a     print
+0o52     print
 0b101010 print
+'*'      print
 ```
 
 ```console
+42
 42
 42
 42
