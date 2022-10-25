@@ -552,8 +552,7 @@ RET{i}:
                     outbuf = outbuf
                         + &format!(
                             "  ;; Op::Dup - {}
-  pop rax
-  push rax
+  mov rax, [rsp]
   push rax
 ",
                             loc
