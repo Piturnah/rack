@@ -3,7 +3,7 @@
 // int ptr int ptr -- int
 fn streq in
 
-  // early return if strings not equal
+  // early return if lengths not equal
   peek str1c _ str2c _ in
     str1c str2c != if false ret end
   end
@@ -26,7 +26,7 @@ end
 
 fn main in
   "test1" "test2" streq if "1st EQUAL\n" puts end
-  "test" "test"   streq if "2nd EQUAL\n" puts end
+  "test"  "test"  streq if "2nd EQUAL\n" puts end
   "abcde" "abcde" streq if "3rd EQUAL\n" puts end
   "abcdf" "abcde" streq if "4th EQUAL\n" puts end
 end
