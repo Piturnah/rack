@@ -370,38 +370,38 @@ impl<'a> Program<'a> {
 entry main
 segment readable executable
 print:
-  mov     r9, -3689348814741910323
-  sub     rsp, 40
-  mov     BYTE [rsp+31], 10
-  lea     rcx, [rsp+30]
+\tmov\tr9, -3689348814741910323
+\tsub\trsp, 40
+\tmov\tBYTE [rsp+31], 10
+\tlea\trcx, [rsp+30]
 .L2:
-  mov     rax, rdi
-  lea     r8, [rsp+32]
-  mul     r9
-  mov     rax, rdi
-  sub     r8, rcx
-  shr     rdx, 3
-  lea     rsi, [rdx+rdx*4]
-  add     rsi, rsi
-  sub     rax, rsi
-  add     eax, 48
-  mov     BYTE [rcx], al
-  mov     rax, rdi
-  mov     rdi, rdx
-  mov     rdx, rcx
-  sub     rcx, 1
-  cmp     rax, 9
-  ja      .L2
-  lea     rax, [rsp+32]
-  mov     edi, 1
-  sub     rdx, rax
-  xor     eax, eax
-  lea     rsi, [rsp+32+rdx]
-  mov     rdx, r8
-  mov     rax, 1
-  syscall
-  add     rsp, 40
-  ret
+\tmov\trax, rdi
+\tlea\tr8, [rsp+32]
+\tmul\tr9
+\tmov\trax, rdi
+\tsub\tr8, rcx
+\tshr\trdx, 3
+\tlea\trsi, [rdx+rdx*4]
+\tadd\trsi, rsi
+\tsub\trax, rsi
+\tadd\teax, 48
+\tmov\tBYTE [rcx], al
+\tmov\trax, rdi
+\tmov\trdi, rdx
+\tmov\trdx, rcx
+\tsub\trcx, 1
+\tcmp\trax, 9
+\tja\t.L2
+\tlea\trax, [rsp+32]
+\tmov\tedi, 1
+\tsub\trdx, rax
+\txor\teax, eax
+\tlea\trsi, [rsp+32+rdx]
+\tmov\trdx, r8
+\tmov\trax, 1
+\tsyscall
+\tadd\trsp, 40
+\tret
 ",
         );
 
@@ -412,36 +412,33 @@ print:
                 Op::Func(index) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Func({index}) - {loc}
-FN{index}:
+                            "FN{index}:\t\t\t\t\t; Op::Func({index})\t\t{loc}
 "
                         );
                 }
                 Op::CallFn(index) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;;  Op::CallFn({index}) - {loc}
-  mov rax, [ret_stack_rsp]
-  sub rax, 8
-  mov [ret_stack_rsp], rax
-  mov qword [rax], RET{i}
-  jmp FN{index}
+                            "\tmov\trax, [ret_stack_rsp]\t; Op::CallFn({index})\t\t{loc}
+\tsub\trax, 8
+\tmov\t[ret_stack_rsp], rax
+\tmov\tqword [rax], RET{i}
+\tjmp\tFN{index}
 RET{i}:
-  mov rax, [ret_stack_rsp]
-  add rax, 8
-  mov [ret_stack_rsp], rax
+\tmov\trax, [ret_stack_rsp]
+\tadd\trax, 8
+\tmov\t[ret_stack_rsp], rax
 "
                         );
                 }
                 Op::Ret(count) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Ret({count}) - {loc}
-  mov rax, [ret_stack_rsp]
-  add rax, {}
-  mov qword [ret_stack_rsp], rax
-  mov rax, [rax]
-  jmp rax
+                            "\tmov\trax, [ret_stack_rsp]\t; Op::Ret({count})\t\t{loc}
+\tadd\trax, {}
+\tmov\tqword [ret_stack_rsp], rax
+\tmov\trax, [rax]
+\tjmp\trax
 ",
                             count * 8
                         );
@@ -449,10 +446,9 @@ RET{i}:
                 Op::Bind(count, is_peek) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Bind({}) - {loc}
-  mov rax, [ret_stack_rsp]
-  sub rax, {}
-  mov [ret_stack_rsp], rax
+                            "\tmov\trax, [ret_stack_rsp]\t; Op::Bind({})\t\t{loc}
+\tsub\trax, {}
+\tmov\t[ret_stack_rsp], rax
 ",
                             count,
                             count * 8
@@ -460,23 +456,22 @@ RET{i}:
                     for i in 0..count {
                         outbuf = outbuf
                             + &format!(
-                                "  mov rbx, [rsp + {0}]
-  mov [rax+{0}], rbx
+                                "\tmov\trbx, [rsp + {0}]
+\tmov\t[rax+{0}], rbx
 ",
                                 i * 8
                             );
                     }
                     if !is_peek {
-                        outbuf = outbuf + &format!("  add rsp, {}\n", count * 8);
+                        outbuf = outbuf + &format!("\tadd\trsp, {}\n", count * 8);
                     }
                 }
                 Op::Unbind(count) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Unbind({count}) - {loc}
-  mov rax, [ret_stack_rsp]
-  add rax, {}
-  mov qword [ret_stack_rsp], rax
+                            "\tmov\trax, [ret_stack_rsp]\t; Op::Unbind({count})\t\t{loc}
+\tadd\trax, {}
+\tmov\tqword [ret_stack_rsp], rax
 ",
                             count * 8
                         );
@@ -484,10 +479,9 @@ RET{i}:
                 Op::PushBind(index) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::PushBind({index}) - {loc}
-  mov rax, [ret_stack_rsp]
-  add rax, {}
-  push qword [rax]
+                            "\tmov\trax, [ret_stack_rsp]\t; Op::PushBind({index})\t{loc}
+\tadd\trax, {}
+\tpush\tqword [rax]
 ",
                             index * 8
                         )
@@ -495,9 +489,8 @@ RET{i}:
                 Op::PushInt(val) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::PushInt({0}) - {1}
-  mov rax, {0}
-  push rax
+                            "\tmov\trax, {0}\t\t\t; Op::PushInt({0})\t{1}
+\tpush\trax
 ",
                             val, loc
                         );
@@ -505,8 +498,7 @@ RET{i}:
                 Op::PushStrPtr(index) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::PushStrPtr({0}) - {1}
-  push str_{0}
+                            "\tpush\tstr_{0}\t\t\t; Op::PushStrPtr({0})\t{1}
 ",
                             index, loc
                         );
@@ -514,45 +506,39 @@ RET{i}:
                 Op::Plus => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Plus - {}
-  pop rax
-  pop rbx
-  add rax, rbx
-  push rax
+                            "\tpop\trax\t\t\t; Op::Plus\t\t{loc}
+\tpop\trbx
+\tadd\trax, rbx
+\tpush\trax
 ",
-                            loc
                         );
                 }
                 Op::Minus => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Minus - {}
-  pop rbx
-  pop rax
-  sub rax, rbx
-  push rax
+                            "\tpop\trbx\t\t\t; Op::Minus\t\t{loc}
+\tpop\trax
+\tsub\trax, rbx
+\tpush\trax
 ",
-                            loc
                         );
                 }
                 Op::DivMod => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::DivMod - {loc}
-  pop rbx
-  pop rax
-  mov rdx, 0
-  div rbx
-  push rax
-  push rdx
+                            "\tpop\trbx\t\t\t; Op::DivMod\t\t{loc}
+\tpop\trax
+\tmov\trdx, 0
+\tdiv\trbx
+\tpush\trax
+\tpush\trdx
 ",
                         );
                 }
                 Op::Dup => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Dup - {}
-  push qword [rsp]
+                            "\tpush\tqword [rsp]\t\t; Op::Dup\t\t{}
 ",
                             loc
                         );
@@ -560,8 +546,7 @@ RET{i}:
                 Op::Drop => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Drop - {}
-  add rsp, 8
+                            "\tadd\trsp, 8\t\t\t; Op::Drop\t\t{}
 ",
                             loc
                         );
@@ -569,40 +554,36 @@ RET{i}:
                 Op::Swap => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Swap - {}
-  pop rax
-  pop rbx
-  push rax
-  push rbx
+                            "\tpop\trax\t\t\t; Op::Swap\t\t{loc}
+\tpop\trbx
+\tpush\trax
+\tpush\trbx
 ",
-                            loc
                         );
                 }
                 Op::Over => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Over - {loc}
-  pop rax
-  pop rbx
-  pop rcx
-  push rbx
-  push rax
-  push rcx
+                            "\tpop\trax\t\t\t; Op::Over\t\t{loc}
+\tpop\trbx
+\tpop\trcx
+\tpush\trbx
+\tpush\trax
+\tpush\trcx
 "
                         );
                 }
                 Op::Equals => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Equals - {loc}
-  pop rax
-  pop rbx
-  cmp rax, rbx
-  je J{0}
-  push 0
-  jmp J{1}
+                            "\tpop\trax\t\t\t; Op::Equals\t\t{loc}
+\tpop\trbx
+\tcmp\trax, rbx
+\tje\tJ{0}
+\tpush\t0
+\tjmp\tJ{1}
 J{0}:
-  push 1
+\tpush\t1
 J{1}:
 ",
                             jump_target_count,
@@ -613,15 +594,14 @@ J{1}:
                 Op::Neq => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Neq - {loc}
-  pop rax
-  pop rbx
-  cmp rax, rbx
-  jne J{0}
-  push 0
-  jmp J{1}
+                            "\tpop\trax\t\t\t; Op::Neq\t\t{loc}
+\tpop\trbx
+\tcmp\trax, rbx
+\tjne\tJ{0}
+\tpush\t0
+\tjmp\tJ{1}
 J{0}:
-  push 1
+\tpush\t1
 J{1}:
 ",
                             jump_target_count,
@@ -632,26 +612,24 @@ J{1}:
                 Op::Not => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Not - {loc}
-  pop rax
-  mov rbx, 1
-  sub rbx, rax
-  push rbx
+                            "\tpop\trax\t\t\t; Op::Not\t\t{loc}
+\tmov\trbx, 1
+\tsub\trbx, rax
+\tpush\trbx
 "
                         )
                 }
                 Op::GreaterThan => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::GreaterThan - {loc}
-  pop rax
-  pop rbx
-  cmp rax, rbx
-  jb J{0}
-  push 0
-  jmp J{1}
+                            "\tpop\trax\t\t\t; Op::GreaterThan\t{loc}
+\tpop\trbx
+\tcmp\trax, rbx
+\tjb\tJ{0}
+\tpush\t0
+\tjmp\tJ{1}
 J{0}:
-  push 1
+\tpush\t1
 J{1}:
 ",
                             jump_target_count,
@@ -662,15 +640,14 @@ J{1}:
                 Op::LessThan => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::LessThan - {loc}
-  pop rax
-  pop rbx
-  cmp rbx, rax
-  jb J{0}
-  push 0
-  jmp J{1}
+                            "\tpop\trax\t\t\t; Op::LessThan\t\t{loc}
+\tpop\trbx
+\tcmp\trbx, rax
+\tjb\tJ{0}
+\tpush\t0
+\tjmp\tJ{1}
 J{0}:
-  push 1
+\tpush\t1
 J{1}:
 ",
                             jump_target_count,
@@ -681,17 +658,16 @@ J{1}:
                 Op::Or => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Or - {loc}
-  pop rax
-  pop rbx
-  cmp rax, 1
-  je J{0}
-  cmp rbx, 1
-  je J{0}
-  push 0
-  jmp J{1}
+                            "\tpop\trax\t\t\t; Op::Or\t\t{loc}
+\tpop\trbx
+\tcmp\trax, 1
+\tje\tJ{0}
+\tcmp\trbx, 1
+\tje\tJ{0}
+\tpush\t0
+\tjmp\tJ{1}
 J{0}:
-  push 1
+\tpush\t1
 J{1}:
 ",
                             jump_target_count,
@@ -702,17 +678,16 @@ J{1}:
                 Op::And => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::And - {2}
-  pop rax
-  pop rbx
-  cmp rax, rbx
-  jne J{0}
-  cmp rax, 1
-  jne J{0}
-  push 1
-  jmp J{1}
+                            "\tpop\trax\t\t\t; Op::And\t\t{2}
+\tpop\trbx
+\tcmp\trax, rbx
+\tjne\tJ{0}
+\tcmp\trax, 1
+\tjne\tJ{0}
+\tpush\t1
+\tjmp\tJ{1}
 J{0}:
-  push 0
+\tpush\t0
 J{1}:
 ",
                             jump_target_count,
@@ -724,21 +699,19 @@ J{1}:
                 Op::ReadByte => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::ReadByte - {loc}
-  pop rbx
-  mov rax, 0
-  mov al, byte [rbx]
-  push rax
+                            "\tpop\trbx\t\t\t; Op::ReadByte\t\t{loc}
+\tmov\trax, 0
+\tmov\tal, byte [rbx]
+\tpush\trax
 "
                         );
                 }
                 Op::If(Some(jump_to)) => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::If - {loc}
-  pop rax
-  cmp rax, 1
-  jne F{}
+                            "\tpop\trax\t\t\t; Op::If\t\t{loc}
+\tcmp\trax, 1
+\tjne\tF{}
 ",
                             jump_to
                         )
@@ -751,8 +724,7 @@ J{1}:
                     Op::If(Some(id)) => {
                         outbuf = outbuf
                             + &format!(
-                                "  ;; Op::While - {loc}
-F{}:
+                                "F{}:\t\t\t\t\t; Op::While\t\t{loc}
 ",
                                 id + 1
                             )
@@ -767,8 +739,7 @@ F{}:
                     Op::If(Some(id)) => {
                         outbuf = outbuf
                             + &format!(
-                                "  ;; Op::End(If) - {loc}
-F{}:
+                                "F{}:\t\t\t\t\t; Op::End(If)\t\t{loc}
 ",
                                 id
                             );
@@ -778,8 +749,7 @@ F{}:
                         Op::If(Some(id)) => {
                             outbuf = outbuf
                                 + &format!(
-                                    "  ;; Op::End(While) - {loc}
-  jmp F{}
+                                    "\tjmp\tF{}\t\t\t; Op::End(While)\t{loc}
 F{}:
 ",
                                     id + 1,
@@ -817,17 +787,17 @@ F{}:
                     | Op::End(_) => unreachable!("End block cannot close `{:?}`", op),
                 },
                 Op::Print => {
-                    outbuf = outbuf + &format!("  ;; Op::Print - {loc}\n  pop rdi\n  call print\n")
+                    outbuf =
+                        outbuf + &format!("\tpop\trdi\t\t\t; Op::Print\t\t{loc}\n\tcall\tprint\n")
                 }
                 Op::Puts => {
                     outbuf = outbuf
                         + &format!(
-                            "  ;; Op::Puts - {loc} 
-  mov rdi, 1
-  pop rsi
-  pop rdx
-  mov rax, 1
-  syscall
+                            "\tmov\trdi, 1\t\t\t; Op::Puts\t\t{loc}
+\tpop\trsi
+\tpop\trdx
+\tmov\trax, 1
+\tsyscall
 "
                         )
                 }
@@ -835,15 +805,15 @@ F{}:
         }
         outbuf += &format!(
             "main:
-  mov rax, ret_stack_rsp
-  sub rax, 8
-  mov qword [ret_stack_rsp], rax
-  mov qword [rax], RET_MAIN
-  call FN{}
+\tmov\trax, ret_stack_rsp
+\tsub\trax, 8
+\tmov\tqword [ret_stack_rsp], rax
+\tmov\tqword [rax], RET_MAIN
+\tcall\tFN{}
 RET_MAIN:
-  mov rax, 60
-  mov rdi, 0
-  syscall
+\tmov\trax, 60
+\tmov\trdi, 0
+\tsyscall
 segment readable
 ",
             self.entry,
