@@ -1,1 +1,4 @@
-fn main in 10 dup print print end
+fn main in 
+  10 dup print print 
+  0xffffffffffffffff dup print print
+end
