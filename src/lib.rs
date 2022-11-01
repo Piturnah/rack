@@ -489,8 +489,7 @@ RET{i}:
                 Op::PushInt(val) => {
                     outbuf = outbuf
                         + &format!(
-                            "\tmov\trax, {0}\t\t\t; Op::PushInt({0})\t{1}
-\tpush\trax
+                            "\tpush\t{0}\t\t\t; Op::PushInt({0})\t{1}
 ",
                             val, loc
                         );
