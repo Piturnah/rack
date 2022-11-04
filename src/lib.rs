@@ -34,7 +34,7 @@ impl fmt::Display for Loc<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Op {
     PushInt(u64),
     PushStrPtr(usize),
@@ -369,8 +369,11 @@ impl<'a> Program<'a> {
             "format ELF64 executable 3
 entry main
 segment readable executable
-print:
-\tmov\tr9, -3689348814741910323
+",
+        );
+
+        if program.iter().any(|t| t.op == Op::Print) {
+            outbuf += "\tmov\tr9, -3689348814741910323
 \tsub\trsp, 40
 \tmov\tBYTE [rsp+31], 10
 \tlea\trcx, [rsp+30]
@@ -402,8 +405,8 @@ print:
 \tsyscall
 \tadd\trsp, 40
 \tret
-",
-        );
+"
+        }
 
         let mut jump_target_count = 0;
 
@@ -431,14 +434,21 @@ RET{i}:
 "
                         );
                 }
+                Op::Ret(0) => {
+                    outbuf = outbuf
+                        + &format!(
+                            "\tmov\trax, qword [ret_stack_rsp]\t; Op::Ret(0)\t\t{loc}
+\tjmp qword [rax]
+"
+                        );
+                }
                 Op::Ret(count) => {
                     outbuf = outbuf
                         + &format!(
                             "\tmov\trax, [ret_stack_rsp]\t; Op::Ret({count})\t\t{loc}
 \tadd\trax, {}
 \tmov\tqword [ret_stack_rsp], rax
-\tmov\trax, [rax]
-\tjmp\trax
+\tjmp\tqword [rax]
 ",
                             count * 8
                         );
