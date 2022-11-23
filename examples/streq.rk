@@ -9,6 +9,7 @@ fn streq in
 
     // Iterate through the bytes of the strings and compare them.
     // If any byte is not equal, return false.
+    0 1 -
     while 1 + dup strac < do
       peek i in
         str1v i + @
