@@ -373,7 +373,8 @@ segment readable executable
         );
 
         if program.iter().any(|t| t.op == Op::Print) {
-            outbuf += "\tmov\tr9, -3689348814741910323
+            outbuf += "print:
+\tmov\tr9, -3689348814741910323
 \tsub\trsp, 40
 \tmov\tBYTE [rsp+31], 10
 \tlea\trcx, [rsp+30]
