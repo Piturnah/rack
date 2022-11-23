@@ -1,24 +1,25 @@
 // `streq` tests for equality of the two input strings.
-
-// int ptr int ptr -- int
 fn streq in
-
-  // early return if lengths not equal
-  peek str1c _ str2c _ in
+  let 
+    str1c str1v // First string.
+    str2c str2v // Second string.
+  in
+    // If the counts are not equal, early return.
     str1c str2c != if false ret end
-  end
 
-  let _ str1v count str2v in
-    0 1 - // -1u64
-    while 1 + dup count < do
-      dup dup str1v + @ swap str2v + @ != if
-        // we found some bytes not equal!
-        drop false ret
+    // Iterate through the bytes of the strings and compare them.
+    // If any byte is not equal, return false.
+    while 1 + dup strac < do
+      peek i in
+        str1v i + @
+        str2v i + @
+        != if drop false ret end
       end
     end drop
-  end
 
-  true
+    // All the bytes were equal, so return true.
+    true
+  end
 end
 
 fn main in
