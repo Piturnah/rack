@@ -1,22 +1,14 @@
-// Returns the nth 0-indexed fibonacci number
-//
+// Returns the nth 0-indexed fibonacci number.
+
 // int -- int
 fn fib in
   let n in
+    // Push n if n is 0 or 1.
+    n 2 < if n ret end
 
-    // push n if n is 0 or 1 
-    n 0 = 
-    n 1 = 
-    or if n end
-
-    // otherwise, recurse!
-    n 0 != 
-    n 1 != 
-    and if
-      n 2 - fib 
-      n 1 - fib +
-    end
-
+    // Otherwise, recurse!
+    n 2 - fib 
+    n 1 - fib +
   end
 end
 
