@@ -21,27 +21,33 @@ impl Default for Target {
     }
 }
 
-impl fmt::Display for Target {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            Self::X86_64_Linux => write!(f, "x86_64-linux"),
-            Self::X86_64_FASM => write!(f, "x86_64-FASM"),
-            Self::Mos6502_Nesulator => write!(f, "mos_6502-nesulator"),
+macro_rules! target_as_str {
+    {$($var:tt => $string:literal),*,} => {
+        impl fmt::Display for Target {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    $(Self::$var => write!(f, $string)),*,
+                }
+            }
+        }
+
+        impl FromStr for Target {
+            type Err = TargetNotFoundError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s.to_lowercase().as_str() {
+                    $($string => Ok(Self::$var)),*,
+                    _ => Err(TargetNotFoundError),
+                }
+            }
         }
     }
 }
 
-impl FromStr for Target {
-    type Err = TargetNotFoundError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "x86_64-linux" => Ok(Self::X86_64_Linux),
-            "x86_64-fasm" => Ok(Self::X86_64_FASM),
-            "mos_6502-nesulator" => Ok(Self::Mos6502_Nesulator),
-            _ => Err(TargetNotFoundError),
-        }
-    }
+target_as_str! {
+    X86_64_Linux => "x86_64-linux",
+    X86_64_FASM => "x86_64-fasm",
+    Mos6502_Nesulator => "mos_6502-nesulator",
 }
 
 #[derive(Debug)]
