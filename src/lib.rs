@@ -1,3 +1,13 @@
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::cast_possible_wrap,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::too_many_lines,
+    clippy::similar_names,
+    clippy::missing_panics_doc
+)]
+
 use std::{
     collections::HashMap,
     fmt::{self, Write},
@@ -73,6 +83,7 @@ pub struct Program<'a> {
 }
 
 impl<'a> Program<'a> {
+    #[must_use]
     pub fn parse(source: &str, path: &'a str) -> Self {
         let mut program: Vec<Token> = Vec::new();
 
@@ -102,51 +113,41 @@ impl<'a> Program<'a> {
             while cs.peek().is_some() {
                 if cs.peek().unwrap().1 != ' ' {
                     let c = cs.next().unwrap();
-                    match c.1 {
-                        '"' => {
-                            let mut parsing_string = String::new();
-                            loop {
-                                match cs.next() {
-                                    Some((_, char)) => {
-                                        if char == '"' {
-                                            ws.push((
-                                                c.0,
-                                                format!("IR_LIT_STR_{}", string_literals.len()),
-                                            ));
-                                            string_literals.push(parsing_string);
-                                            break;
-                                        } else if char == '\\' {
-                                            match cs.next().unwrap() {
-                                                (_, 'n') => parsing_string += "\n",
-                                                (_, '"') => parsing_string += "\"",
-                                                (_, c) => parsing_string += &c.to_string(),
-                                            }
-                                        } else {
-                                            parsing_string += &char.to_string();
-                                        }
-                                    }
-                                    None => {
-                                        eprintln!(
-                                            "{path}:{}:{}: No closing `\"` for string literal",
-                                            row + 1,
-                                            c.0 + 1
-                                        );
-                                        process::exit(1);
-                                    }
+                    if c.1 == '"' {
+                        let mut parsing_string = String::new();
+                        loop {
+                            let Some((_, char)) = cs.next() else {
+                                eprintln!(
+                                    "{path}:{}:{}: No closing `\"` for string literal",
+                                    row + 1,
+                                    c.0 + 1
+                                );
+                                process::exit(1);
+                            };
+                            if char == '"' {
+                                ws.push((c.0, format!("IR_LIT_STR_{}", string_literals.len())));
+                                string_literals.push(parsing_string);
+                                break;
+                            } else if char == '\\' {
+                                match cs.next().unwrap() {
+                                    (_, 'n') => parsing_string += "\n",
+                                    (_, '"') => parsing_string += "\"",
+                                    (_, c) => parsing_string += &c.to_string(),
                                 }
+                            } else {
+                                parsing_string += &char.to_string();
                             }
                         }
-                        _ => {
-                            ws.push((c.0, c.1.to_string()));
+                    } else {
+                        ws.push((c.0, c.1.to_string()));
 
-                            while cs.peek().is_some() && cs.peek().unwrap().1 != ' ' {
-                                let last_ws_i = ws.len() - 1;
-                                ws[last_ws_i] = (
-                                    ws[last_ws_i].0,
-                                    ws.get(last_ws_i).unwrap().1.clone()
-                                        + &cs.next().unwrap().1.to_string(),
-                                );
-                            }
+                        while cs.peek().is_some() && cs.peek().unwrap().1 != ' ' {
+                            let last_ws_i = ws.len() - 1;
+                            ws[last_ws_i] = (
+                                ws[last_ws_i].0,
+                                ws.get(last_ws_i).unwrap().1.clone()
+                                    + &cs.next().unwrap().1.to_string(),
+                            );
                         }
                     }
                 }
@@ -226,12 +227,9 @@ impl<'a> Program<'a> {
                             push!(Op::While(None));
                         }
                         "do" => {
-                            let index = match ret_stack.last() {
-                                Some(index) => *index,
-                                None => {
-                                    eprintln!("{}: `do` must close `while` condn", loc);
-                                    process::exit(1);
-                                }
+                            let Some(&index) = ret_stack.last() else {
+                                eprintln!("{loc}: `do` must close `while` condn");
+                                process::exit(1);
                             };
                             match program[index].op {
                                 Op::While(None) => {
@@ -244,15 +242,9 @@ impl<'a> Program<'a> {
                             }
                         }
                         "end" => {
-                            let index = match ret_stack.pop() {
-                                Some(index) => index,
-                                None => {
-                                    eprintln!(
-                                        "{}: `end` must close either `do` or `if` block",
-                                        loc
-                                    );
-                                    process::exit(1);
-                                }
+                            let Some(index) = ret_stack.pop() else {
+                                eprintln!("{loc}: `end` must close either `do` or `if` block");
+                                process::exit(1);
                             };
                             match &program[index].op {
                                 Op::If(None) => {
@@ -332,7 +324,9 @@ impl<'a> Program<'a> {
                                         push!(Op::PushInt(w.chars().nth(1).unwrap() as u64));
                                     }
                                     _ => {
-                                        eprintln!("{loc}: Character literals must be only one char")
+                                        eprintln!(
+                                            "{loc}: Character literals must be only one char"
+                                        );
                                     }
                                 }
                             } else if parsing_function_def {
@@ -340,7 +334,7 @@ impl<'a> Program<'a> {
                             } else if let Some(jmp_index) = functions.get(w) {
                                 push!(Op::CallFn(*jmp_index));
                             } else {
-                                eprintln!("{}: Unknown word `{}` in program source", loc, word);
+                                eprintln!("{loc}: Unknown word `{word}` in program source");
                                 process::exit(1);
                             }
                         }
@@ -352,16 +346,19 @@ impl<'a> Program<'a> {
             entry: *functions
                 .iter()
                 .find(|(name, _)| *name == "main")
-                .map(|(_, index)| index)
-                .unwrap_or_else(|| {
-                    eprintln!("[ERROR] No entry point `main` found.");
-                    process::exit(1);
-                }),
+                .map_or_else(
+                    || {
+                        eprintln!("[ERROR] No entry point `main` found.");
+                        process::exit(1);
+                    },
+                    |(_, index)| index,
+                ),
             program,
             string_literals,
         }
     }
 
+    #[must_use]
     pub fn generate_fasm_x86_64_linux(self) -> String {
         let program = self.program;
 
@@ -406,24 +403,19 @@ segment readable executable
 \tsyscall
 \tadd\trsp, 40
 \tret
-"
+";
         }
 
         let mut jump_target_count = 0;
 
         for (i, (loc, op)) in program.into_iter().map(|tok| (tok.loc, tok.op)).enumerate() {
+            #[allow(clippy::match_same_arms)]
             match op {
-                Op::Func(index) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "FN{index}:\t\t\t\t\t; Op::Func({index})\t\t{loc}
-"
-                        );
-                }
-                Op::CallFn(index) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trax, [ret_stack_rsp]\t; Op::CallFn({index})\t\t{loc}
+                Op::Func(index) => outbuf.push_str(&format!(
+                    "FN{index}:\t\t\t\t\t; Op::Func({index})\t\t{loc}\n"
+                )),
+                Op::CallFn(index) => outbuf.push_str(&format!(
+                    "\tmov\trax, [ret_stack_rsp]\t; Op::CallFn({index})\t\t{loc}
 \tsub\trax, 8
 \tmov\t[ret_stack_rsp], rax
 \tmov\tqword [rax], RET{i}
@@ -433,160 +425,109 @@ RET{i}:
 \tadd\trax, 8
 \tmov\t[ret_stack_rsp], rax
 "
-                        );
-                }
-                Op::Ret(0) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trax, qword [ret_stack_rsp]\t; Op::Ret(0)\t\t{loc}
+                )),
+                Op::Ret(0) => outbuf.push_str(&format!(
+                    "\tmov\trax, qword [ret_stack_rsp]\t; Op::Ret(0)\t\t{loc}
 \tjmp qword [rax]
 "
-                        );
-                }
-                Op::Ret(count) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trax, [ret_stack_rsp]\t; Op::Ret({count})\t\t{loc}
+                )),
+                Op::Ret(count) => outbuf.push_str(&format!(
+                    "\tmov\trax, [ret_stack_rsp]\t; Op::Ret({count})\t\t{loc}
 \tadd\trax, {}
 \tmov\tqword [ret_stack_rsp], rax
 \tjmp\tqword [rax]
 ",
-                            count * 8
-                        );
-                }
+                    count * 8
+                )),
                 Op::Bind(count, is_peek) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trax, [ret_stack_rsp]\t; Op::Bind({})\t\t{loc}
+                    outbuf.push_str(&format!(
+                        "\tmov\trax, [ret_stack_rsp]\t; Op::Bind({})\t\t{loc}
 \tsub\trax, {}
 \tmov\t[ret_stack_rsp], rax
 ",
-                            count,
-                            count * 8
-                        );
+                        count,
+                        count * 8
+                    ));
                     for i in 0..count {
-                        outbuf = outbuf
-                            + &format!(
-                                "\tmov\trbx, [rsp + {0}]
+                        outbuf.push_str(&format!(
+                            "\tmov\trbx, [rsp + {0}]
 \tmov\t[rax+{0}], rbx
 ",
-                                i * 8
-                            );
+                            i * 8
+                        ));
                     }
                     if !is_peek {
-                        outbuf = outbuf + &format!("\tadd\trsp, {}\n", count * 8);
+                        outbuf.push_str(&format!("\tadd\trsp, {}\n", count * 8));
                     }
                 }
-                Op::Unbind(count) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trax, [ret_stack_rsp]\t; Op::Unbind({count})\t\t{loc}
+                Op::Unbind(count) => outbuf.push_str(&format!(
+                    "\tmov\trax, [ret_stack_rsp]\t; Op::Unbind({count})\t\t{loc}
 \tadd\trax, {}
 \tmov\tqword [ret_stack_rsp], rax
 ",
-                            count * 8
-                        );
-                }
-                Op::PushBind(index) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trax, [ret_stack_rsp]\t; Op::PushBind({index})\t{loc}
+                    count * 8
+                )),
+                Op::PushBind(index) => outbuf.push_str(&format!(
+                    "\tmov\trax, [ret_stack_rsp]\t; Op::PushBind({index})\t{loc}
 \tadd\trax, {}
 \tpush\tqword [rax]
 ",
-                            index * 8
-                        )
-                }
-                Op::PushInt(val) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpush\t{0}\t\t\t; Op::PushInt({0})\t{1}
-",
-                            val, loc
-                        );
-                }
-                Op::PushStrPtr(index) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpush\tstr_{0}\t\t\t; Op::PushStrPtr({0})\t{1}
-",
-                            index, loc
-                        );
-                }
-                Op::Plus => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Plus\t\t{loc}
+                    index * 8
+                )),
+                Op::PushInt(val) => outbuf.push_str(&format!(
+                    "\tpush\t{0}\t\t\t; Op::PushInt({0})\t{1}\n",
+                    val, loc
+                )),
+                Op::PushStrPtr(index) => outbuf.push_str(&format!(
+                    "\tpush\tstr_{0}\t\t\t; Op::PushStrPtr({0})\t{1}\n",
+                    index, loc
+                )),
+                Op::Plus => outbuf.push_str(&format!(
+                    "\tpop\trax\t\t\t; Op::Plus\t\t{loc}
 \tpop\trbx
 \tadd\trax, rbx
 \tpush\trax
 ",
-                        );
-                }
-                Op::Minus => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trbx\t\t\t; Op::Minus\t\t{loc}
+                )),
+                Op::Minus => outbuf.push_str(&format!(
+                    "\tpop\trbx\t\t\t; Op::Minus\t\t{loc}
 \tpop\trax
 \tsub\trax, rbx
 \tpush\trax
 ",
-                        );
-                }
-                Op::DivMod => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trbx\t\t\t; Op::DivMod\t\t{loc}
+                )),
+                Op::DivMod => outbuf.push_str(&format!(
+                    "\tpop\trbx\t\t\t; Op::DivMod\t\t{loc}
 \tpop\trax
 \tmov\trdx, 0
 \tdiv\trbx
 \tpush\trax
 \tpush\trdx
 ",
-                        );
-                }
+                )),
                 Op::Dup => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpush\tqword [rsp]\t\t; Op::Dup\t\t{}
-",
-                            loc
-                        );
+                    outbuf.push_str(&format!("\tpush\tqword [rsp]\t\t; Op::Dup\t\t{loc}\n",));
                 }
-                Op::Drop => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tadd\trsp, 8\t\t\t; Op::Drop\t\t{}
-",
-                            loc
-                        );
-                }
-                Op::Swap => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Swap\t\t{loc}
+                Op::Drop => outbuf.push_str(&format!("\tadd\trsp, 8\t\t\t; Op::Drop\t\t{loc}\n",)),
+                Op::Swap => outbuf.push_str(&format!(
+                    "\tpop\trax\t\t\t; Op::Swap\t\t{loc}
 \tpop\trbx
 \tpush\trax
 \tpush\trbx
 ",
-                        );
-                }
-                Op::Over => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Over\t\t{loc}
+                )),
+                Op::Over => outbuf.push_str(&format!(
+                    "\tpop\trax\t\t\t; Op::Over\t\t{loc}
 \tpop\trbx
 \tpop\trcx
 \tpush\trbx
 \tpush\trax
 \tpush\trcx
 "
-                        );
-                }
+                )),
                 Op::Equals => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Equals\t\t{loc}
+                    outbuf.push_str(&format!(
+                        "\tpop\trax\t\t\t; Op::Equals\t\t{loc}
 \tpop\trbx
 \tcmp\trax, rbx
 \tje\tJ{0}
@@ -596,15 +537,14 @@ J{0}:
 \tpush\t1
 J{1}:
 ",
-                            jump_target_count,
-                            jump_target_count + 1,
-                        );
+                        jump_target_count,
+                        jump_target_count + 1,
+                    ));
                     jump_target_count += 2;
                 }
                 Op::Neq => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Neq\t\t{loc}
+                    outbuf.push_str(&format!(
+                        "\tpop\trax\t\t\t; Op::Neq\t\t{loc}
 \tpop\trbx
 \tcmp\trax, rbx
 \tjne\tJ{0}
@@ -614,25 +554,21 @@ J{0}:
 \tpush\t1
 J{1}:
 ",
-                            jump_target_count,
-                            jump_target_count + 1,
-                        );
+                        jump_target_count,
+                        jump_target_count + 1,
+                    ));
                     jump_target_count += 2;
                 }
-                Op::Not => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Not\t\t{loc}
+                Op::Not => outbuf.push_str(&format!(
+                    "\tpop\trax\t\t\t; Op::Not\t\t{loc}
 \tmov\trbx, 1
 \tsub\trbx, rax
 \tpush\trbx
 "
-                        )
-                }
+                )),
                 Op::GreaterThan => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::GreaterThan\t{loc}
+                    outbuf.push_str(&format!(
+                        "\tpop\trax\t\t\t; Op::GreaterThan\t{loc}
 \tpop\trbx
 \tcmp\trax, rbx
 \tjb\tJ{0}
@@ -642,15 +578,14 @@ J{0}:
 \tpush\t1
 J{1}:
 ",
-                            jump_target_count,
-                            jump_target_count + 1,
-                        );
+                        jump_target_count,
+                        jump_target_count + 1,
+                    ));
                     jump_target_count += 2;
                 }
                 Op::LessThan => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::LessThan\t\t{loc}
+                    outbuf.push_str(&format!(
+                        "\tpop\trax\t\t\t; Op::LessThan\t\t{loc}
 \tpop\trbx
 \tcmp\trbx, rax
 \tjb\tJ{0}
@@ -660,15 +595,14 @@ J{0}:
 \tpush\t1
 J{1}:
 ",
-                            jump_target_count,
-                            jump_target_count + 1,
-                        );
+                        jump_target_count,
+                        jump_target_count + 1,
+                    ));
                     jump_target_count += 2;
                 }
                 Op::Or => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::Or\t\t{loc}
+                    outbuf.push_str(&format!(
+                        "\tpop\trax\t\t\t; Op::Or\t\t{loc}
 \tpop\trbx
 \tcmp\trax, 1
 \tje\tJ{0}
@@ -680,15 +614,14 @@ J{0}:
 \tpush\t1
 J{1}:
 ",
-                            jump_target_count,
-                            jump_target_count + 1,
-                        );
+                        jump_target_count,
+                        jump_target_count + 1,
+                    ));
                     jump_target_count += 2;
                 }
                 Op::And => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::And\t\t{2}
+                    outbuf.push_str(&format!(
+                        "\tpop\trax\t\t\t; Op::And\t\t{2}
 \tpop\trbx
 \tcmp\trax, rbx
 \tjne\tJ{0}
@@ -700,72 +633,55 @@ J{0}:
 \tpush\t0
 J{1}:
 ",
-                            jump_target_count,
-                            jump_target_count + 1,
-                            loc
-                        );
+                        jump_target_count,
+                        jump_target_count + 1,
+                        loc
+                    ));
                     jump_target_count += 2;
                 }
-                Op::ReadByte => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trbx\t\t\t; Op::ReadByte\t\t{loc}
+                Op::ReadByte => outbuf.push_str(&format!(
+                    "\tpop\trbx\t\t\t; Op::ReadByte\t\t{loc}
 \tmov\trax, 0
 \tmov\tal, byte [rbx]
 \tpush\trax
 "
-                        );
-                }
-                Op::If(Some(jump_to)) => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tpop\trax\t\t\t; Op::If\t\t{loc}
+                )),
+
+                Op::If(Some(jump_to)) => outbuf.push_str(&format!(
+                    "\tpop\trax\t\t\t; Op::If\t\t{loc}
 \tcmp\trax, 1
-\tjne\tF{}
-",
-                            jump_to
-                        )
-                }
+\tjne\tF{jump_to}
+"
+                )),
                 Op::If(None) => {
-                    eprintln!("{}: No closing `end` for `if` keyword", loc);
+                    eprintln!("{loc}: No closing `end` for `if` keyword");
                     process::exit(1);
                 }
                 Op::While(Some(op)) => match *op {
-                    Op::If(Some(id)) => {
-                        outbuf = outbuf
-                            + &format!(
-                                "F{}:\t\t\t\t\t; Op::While\t\t{loc}
+                    Op::If(Some(id)) => outbuf.push_str(&format!(
+                        "F{}:\t\t\t\t\t; Op::While\t\t{loc}
 ",
-                                id + 1
-                            )
-                    }
+                        id + 1
+                    )),
                     _ => unreachable!(),
                 },
                 Op::While(None) => {
-                    eprintln!("{}: No closing `do` for `while` keyword", loc);
+                    eprintln!("{loc}: No closing `do` for `while` keyword");
                     process::exit(1);
                 }
                 Op::End(op) => match *op {
                     Op::If(Some(id)) => {
-                        outbuf = outbuf
-                            + &format!(
-                                "F{}:\t\t\t\t\t; Op::End(If)\t\t{loc}
-",
-                                id
-                            );
+                        outbuf.push_str(&format!("F{id}:\t\t\t\t\t; Op::End(If)\t\t{loc}\n",));
                     }
                     Op::If(None) => unreachable!(),
                     Op::While(Some(op)) => match *op {
-                        Op::If(Some(id)) => {
-                            outbuf = outbuf
-                                + &format!(
-                                    "\tjmp\tF{}\t\t\t; Op::End(While)\t{loc}
+                        Op::If(Some(id)) => outbuf.push_str(&format!(
+                            "\tjmp\tF{}\t\t\t; Op::End(While)\t{loc}
 F{}:
 ",
-                                    id + 1,
-                                    id
-                                )
-                        }
+                            id + 1,
+                            id
+                        )),
                         _ => unreachable!(),
                     },
                     Op::While(None) => unreachable!(),
@@ -796,21 +712,17 @@ F{}:
                     | Op::And
                     | Op::End(_) => unreachable!("End block cannot close `{:?}`", op),
                 },
-                Op::Print => {
-                    outbuf =
-                        outbuf + &format!("\tpop\trdi\t\t\t; Op::Print\t\t{loc}\n\tcall\tprint\n")
-                }
-                Op::Puts => {
-                    outbuf = outbuf
-                        + &format!(
-                            "\tmov\trdi, 1\t\t\t; Op::Puts\t\t{loc}
+                Op::Print => outbuf.push_str(&format!(
+                    "\tpop\trdi\t\t\t; Op::Print\t\t{loc}\n\tcall\tprint\n"
+                )),
+                Op::Puts => outbuf.push_str(&format!(
+                    "\tmov\trdi, 1\t\t\t; Op::Puts\t\t{loc}
 \tpop\trsi
 \tpop\trdx
 \tmov\trax, 1
 \tsyscall
 "
-                        )
-                }
+                )),
             };
         }
         outbuf += &format!(
@@ -833,7 +745,7 @@ segment readable
             for b in s.as_bytes() {
                 write!(&mut s_bytes, "{b},").unwrap();
             }
-            outbuf += &format!("str_{i}: db {}\n", s_bytes.trim_end_matches(','))
+            outbuf += &format!("str_{i}: db {}\n", s_bytes.trim_end_matches(','));
         }
 
         outbuf
@@ -844,6 +756,10 @@ ret_stack_end:
 "
     }
 
+    /// # Panics
+    ///
+    /// Will panic if trying to compile an operation that is not yet implemented.
+    #[must_use]
     pub fn generate_code_mos_6502_nesulator(self) -> [u8; 65536 - 0x4020] {
         const NOP: u8 = 0xea;
         const PHA: u8 = 0x48;
@@ -899,14 +815,14 @@ ret_stack_end:
                         let branch_index = unclosed_ifs
                             .pop()
                             .expect("`end` has no opening keyword in codegen!");
-                        outbuf[branch_index as usize + 1] = (pc - branch_index) as i8 as u8;
+                        outbuf[branch_index + 1] = (pc - branch_index) as i8 as u8;
                         vec![]
                     }
                     Op::While(_) => {
                         let branch_index = unclosed_ifs
                             .pop()
                             .expect("`end` has no opening keyword in codegen!");
-                        outbuf[branch_index as usize + 1] = (pc + 4 - branch_index) as i8 as u8;
+                        outbuf[branch_index + 1] = (pc + 4 - branch_index) as i8 as u8;
 
                         let while_index = unclosed_whiles
                             .pop()
@@ -926,7 +842,7 @@ ret_stack_end:
                     process::exit(1);
                 }
             };
-            outbuf.splice(pc..pc + opcodes.len(), opcodes.iter().cloned());
+            outbuf.splice(pc..pc + opcodes.len(), opcodes.iter().copied());
             pc += opcodes.len();
         }
 

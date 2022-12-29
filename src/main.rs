@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+
 use clap::Parser;
 use rackc::Program;
 use std::{
@@ -84,12 +86,9 @@ fn main() {
     let config = Config::parse();
 
     let source_f = &config.file;
-    let source = match fs::read_to_string(source_f) {
-        Ok(source) => source,
-        Err(_) => {
-            eprintln!("Couldn't read file `{}`", source_f);
-            process::exit(1);
-        }
+    let Ok(source) = fs::read_to_string(source_f) else {
+        eprintln!("Couldn't read file `{source_f}`");
+        process::exit(1);
     };
 
     let program = Program::parse(&source, &config.file);
@@ -112,18 +111,18 @@ fn main() {
                 .expect("path name is invalid unicode")
                 .to_owned();
 
-            println!("[INFO] Generating `{}`", asm_path);
+            println!("[INFO] Generating `{asm_path}`");
 
             let outbuf = program.generate_fasm_x86_64_linux();
-            fs::write(&asm_path, &outbuf).expect("Unable to write to out.asm");
+            fs::write(&asm_path, outbuf).expect("Unable to write to out.asm");
 
-            run_command(&format!("fasm {}", asm_path));
+            run_command(&format!("fasm {asm_path}"));
 
             let output_path = output_path
                 .to_str()
                 .expect("path name is invalid unicode")
                 .to_owned();
-            run_command(&format!("chmod +x {}", output_path));
+            run_command(&format!("chmod +x {output_path}"));
 
             if config.run {
                 run_command(&output_path);
@@ -134,21 +133,21 @@ fn main() {
                 .to_str()
                 .expect("path name is invalid unicode")
                 .to_owned();
-            println!("[INFO] Generating `{}`", &output_path);
+            println!("[INFO] Generating `{output_path}`");
             let outbuf = program.generate_fasm_x86_64_linux();
-            fs::write(&output_path, &outbuf)
-                .unwrap_or_else(|_| panic!("failed to write to {}", output_path));
+            fs::write(&output_path, outbuf)
+                .unwrap_or_else(|_| panic!("failed to write to {output_path}"));
         }
         Target::Mos6502_Nesulator => {
             let output_path = output_path
                 .to_str()
                 .expect("path name is invalid unicode")
                 .to_owned();
-            println!("[INFO] Generating `{}`", &output_path);
+            println!("[INFO] Generating `{output_path}`");
 
             let outbuf = program.generate_code_mos_6502_nesulator();
-            fs::write(&output_path, &outbuf)
-                .unwrap_or_else(|_| panic!("Unable to write to {}", output_path));
+            fs::write(&output_path, outbuf)
+                .unwrap_or_else(|_| panic!("Unable to write to {output_path}"));
 
             println!("[INFO] Wrote {} bytes", outbuf.len());
         }
@@ -156,7 +155,7 @@ fn main() {
 }
 
 fn run_command(cmd: &str) {
-    println!("[INFO] Running `{}`", cmd);
+    println!("[INFO] Running `{cmd}`");
     let mut cmd = cmd.split_whitespace();
 
     if let Err(e) = process::Command::new(cmd.next().expect("No command provided"))
@@ -164,7 +163,7 @@ fn run_command(cmd: &str) {
         .stdout(Stdio::inherit())
         .output()
     {
-        eprintln!("[ERROR] {}", e);
+        eprintln!("[ERROR] {e}");
         process::exit(1);
     };
 }
