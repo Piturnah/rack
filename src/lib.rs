@@ -14,6 +14,8 @@ use std::{
     process,
 };
 
+pub mod parse;
+
 pub struct Token<'l> {
     op: Op,
     loc: Loc<'l>,

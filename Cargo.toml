@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3", features = ["derive"]}
+nom = "7.1.2"
+nom_locate = "4.0.0"
