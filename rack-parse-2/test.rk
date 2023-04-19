@@ -1,0 +1,3 @@
+fn main in
+  1 0x1a + print
+end
