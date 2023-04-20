@@ -7,3 +7,10 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3", features = ["derive"]}
+
+[dev-dependencies]
+text-diff = "0.4.0"
+
+[[test]]
+name = "integration"
+harness = false

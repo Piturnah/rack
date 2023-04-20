@@ -1,0 +1,15 @@
+// int ptr int ptr -- int
+fn streq in
+  let str1c str1v str2c str2c in
+    0 1 - print
+  end
+end
+
+// int ptr --
+fn putlns in
+  puts "\n" puts
+end
+
+fn main in
+  "hello, world" putlns
+end
