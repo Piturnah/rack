@@ -1,7 +1,7 @@
 use std::{
     fs::{self, read_dir, DirBuilder, DirEntry},
-    process::{exit, Command},
-    str, thread,
+    process::Command,
+    thread,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -50,7 +50,10 @@ fn run_test(file: DirEntry, mode: Mode) {
                     &String::from_utf8_lossy(&output),
                     "",
                 );
-                exit(1);
+                panic!(
+                    "program `{}` did not match its expected output!",
+                    file.file_name().to_string_lossy()
+                );
             }
         }
     }
