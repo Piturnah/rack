@@ -1,4 +1,4 @@
-use crate::lex::{Keyword, Lexer, Location, Token, TokenKind};
+use crate::lex::{Keyword, Lexer, Location, TokenKind};
 
 use thiserror::Error;
 
@@ -8,29 +8,29 @@ pub enum Op {
     //PushStrPtr(usize),
     Plus,
     Minus,
-    //DivMod,
-    //Dup,
-    //Drop,
-    //Swap,
-    //Over,
-    //Equals,
-    //Neq,
-    //Not,
-    //GreaterThan,
-    //LessThan,
-    //Or,
-    //And,
-    //ReadByte,
+    DivMod,
+    Dup,
+    Drop,
+    Swap,
+    Over,
+    Equals,
+    Neq,
+    Not,
+    GreaterThan,
+    LessThan,
+    Or,
+    And,
+    ReadByte,
     //If(Option<usize>),
     //While(Option<Box<Op>>),
     //End(Box<Op>),
     Print,
     //CallFn(usize),
     //Ret(usize),        // the number of stack frames to drop
-    //Puts,              // Later move to stdlib?
-    //Bind(usize, bool), // (number of variables to bind, are we peeking)
-    //PushBind(usize),   // index of binding to push
-    //Unbind(usize),
+    Puts, // Later move to stdlib?
+          //Bind(usize, bool), // (number of variables to bind, are we peeking)
+          //PushBind(usize),   // index of binding to push
+          //Unbind(usize),
 }
 
 #[derive(Error, Debug)]
@@ -88,6 +88,29 @@ fn parse_block<'lex, 'src>(lexer: &'lex mut Lexer<'src>) -> Result<Vec<Op>, Synt
                 Keyword::Plus => body.push(Op::Plus),
                 Keyword::Minus => body.push(Op::Minus),
                 Keyword::Print => body.push(Op::Print),
+                Keyword::Dup => body.push(Op::Dup),
+                Keyword::Drop => body.push(Op::Drop),
+                Keyword::Swap => body.push(Op::Swap),
+                Keyword::Over => body.push(Op::Over),
+                Keyword::Equals => body.push(Op::Equals),
+                Keyword::Neq => body.push(Op::Neq),
+                Keyword::Not => body.push(Op::Not),
+                Keyword::GreaterThan => body.push(Op::GreaterThan),
+                Keyword::LessThan => body.push(Op::LessThan),
+                Keyword::Or => body.push(Op::Or),
+                Keyword::And => body.push(Op::And),
+                Keyword::ReadByte => body.push(Op::ReadByte),
+                Keyword::Puts => body.push(Op::Puts),
+                Keyword::DivMod => body.push(Op::DivMod),
+                Keyword::Div => {
+                    body.push(Op::DivMod);
+                    body.push(Op::Drop);
+                }
+                Keyword::Mod => {
+                    body.push(Op::DivMod);
+                    body.push(Op::Swap);
+                    body.push(Op::Drop);
+                }
                 Keyword::Fn => panic!("no function definitions outside of top-level"),
                 Keyword::In => panic!(),
             },
