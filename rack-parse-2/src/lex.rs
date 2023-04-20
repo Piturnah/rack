@@ -192,7 +192,7 @@ impl<'src> Lexer<'src> {
         'src: 'lex,
     {
         self.next()
-            .ok_or(SyntaxError::EOF(self.location()))?
+            .ok_or(SyntaxError::Eof(self.location()))?
             .expect_kind(expected)
     }
 }

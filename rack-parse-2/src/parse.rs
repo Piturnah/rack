@@ -37,7 +37,7 @@ pub enum Op {
 #[derive(Error, Debug)]
 pub enum SyntaxError<'src> {
     #[error("unexpected end of input at {0}")]
-    EOF(Location<'src>),
+    Eof(Location<'src>),
     #[error("{location}: {found} is not allowed at the top level")]
     UnexpectedTopLevel {
         found: TokenKind,
@@ -79,9 +79,7 @@ impl<'src> Context<'src> {
     }
 }
 
-pub fn parse_tokens<'lex, 'src>(
-    lexer: &'lex mut Lexer<'src>,
-) -> Result<Vec<Func<'src>>, SyntaxError<'src>> {
+pub fn parse_tokens<'src>(lexer: &mut Lexer<'src>) -> Result<Vec<Func<'src>>, SyntaxError<'src>> {
     let mut funcs = Vec::new();
     let mut ctx = Context::default();
     loop {
@@ -99,14 +97,14 @@ pub fn parse_tokens<'lex, 'src>(
     Ok(funcs)
 }
 
-fn parse_block<'lex, 'src>(
-    lexer: &'lex mut Lexer<'src>,
+fn parse_block<'src>(
+    lexer: &mut Lexer<'src>,
     ctx: &mut Context<'src>,
 ) -> Result<Vec<Op>, SyntaxError<'src>> {
     // TODO: replace all of these unwraps and panics with error handling.
     let mut body = Vec::new();
     loop {
-        let t = lexer.next().ok_or(SyntaxError::EOF(lexer.location()))?;
+        let t = lexer.next().ok_or(SyntaxError::Eof(lexer.location()))?;
 
         match t.kind {
             TokenKind::Int(num) => body.push(Op::PushInt(num)),
@@ -159,8 +157,8 @@ fn parse_block<'lex, 'src>(
     Ok(body)
 }
 
-fn parse_fn<'lex, 'src>(
-    lexer: &'lex mut Lexer<'src>,
+fn parse_fn<'src>(
+    lexer: &mut Lexer<'src>,
     ctx: &mut Context<'src>,
 ) -> Result<Func<'src>, SyntaxError<'src>> {
     let t = lexer.expect_next(TokenKind::Identifier)?;
