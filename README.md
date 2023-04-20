@@ -14,6 +14,7 @@ ARGS:
 OPTIONS:
     -h, --help               Print help information
     -o, --out <FILE>         Output file
+    -q, --quiet              Don't print log information
     -r, --run                Run the program after successful compilation
     -t, --target <TARGET>    Target architecture [default: x86_64-linux]
 ```
