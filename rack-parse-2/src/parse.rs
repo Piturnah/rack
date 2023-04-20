@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lex::{Keyword, Lexer, Location, TokenKind};
 
 use thiserror::Error;
@@ -23,9 +25,8 @@ pub enum Op {
     ReadByte,
     //If(Option<usize>),
     //While(Option<Box<Op>>),
-    //End(Box<Op>),
     Print,
-    //CallFn(usize),
+    CallFn(usize),
     //Ret(usize),        // the number of stack frames to drop
     Puts, // Later move to stdlib?
           //Bind(usize, bool), // (number of variables to bind, are we peeking)
@@ -34,19 +35,24 @@ pub enum Op {
 }
 
 #[derive(Error, Debug)]
-pub enum SyntaxError<'f> {
+pub enum SyntaxError<'src> {
     #[error("unexpected end of input at {0}")]
-    EOF(Location<'f>),
+    EOF(Location<'src>),
     #[error("{location}: {found} is not allowed at the top level")]
     UnexpectedTopLevel {
         found: TokenKind,
-        location: Location<'f>,
+        location: Location<'src>,
     },
     #[error("unexpected token at {location} (expected {expected} but found {found})")]
     UnexpectedToken {
         expected: TokenKind,
         found: TokenKind,
-        location: Location<'f>,
+        location: Location<'src>,
+    },
+    #[error("{location}: `{identifier}` is an unknown name in the current context")]
+    UnknownIdentifier {
+        identifier: &'src str,
+        location: Location<'src>,
     },
 }
 
@@ -56,14 +62,32 @@ pub struct Func<'src> {
     body: Vec<Op>,
 }
 
+// NOTE: Can probably be moved, for example can make a `Parser` struct and move related functions
+// to impl block?
+#[derive(Debug, Default)]
+pub struct Context<'src> {
+    /// Nametable.
+    lookup: HashMap<&'src str, usize>,
+    /// The idents that are currently in scope.
+    idents: Vec<&'src str>,
+}
+
+impl<'src> Context<'src> {
+    fn insert_ident(&mut self, ident: &'src str) {
+        self.lookup.insert(ident, self.lookup.len());
+        self.idents.push(ident);
+    }
+}
+
 pub fn parse_tokens<'lex, 'src>(
     lexer: &'lex mut Lexer<'src>,
 ) -> Result<Vec<Func<'src>>, SyntaxError<'src>> {
     let mut funcs = Vec::new();
+    let mut ctx = Context::default();
     loop {
         let Some(t) = lexer.next() else { break };
         match t.kind {
-            TokenKind::Keyword(Keyword::Fn) => funcs.push(parse_fn(lexer)?),
+            TokenKind::Keyword(Keyword::Fn) => funcs.push(parse_fn(lexer, &mut ctx)?),
             _ => {
                 return Err(SyntaxError::UnexpectedTopLevel {
                     found: t.kind,
@@ -75,7 +99,10 @@ pub fn parse_tokens<'lex, 'src>(
     Ok(funcs)
 }
 
-fn parse_block<'lex, 'src>(lexer: &'lex mut Lexer<'src>) -> Result<Vec<Op>, SyntaxError<'src>> {
+fn parse_block<'lex, 'src>(
+    lexer: &'lex mut Lexer<'src>,
+    ctx: &mut Context<'src>,
+) -> Result<Vec<Op>, SyntaxError<'src>> {
     // TODO: replace all of these unwraps and panics with error handling.
     let mut body = Vec::new();
     loop {
@@ -114,17 +141,33 @@ fn parse_block<'lex, 'src>(lexer: &'lex mut Lexer<'src>) -> Result<Vec<Op>, Synt
                 Keyword::Fn => panic!("no function definitions outside of top-level"),
                 Keyword::In => panic!(),
             },
-            kind => todo!("parsing of {kind:?} in body"),
+            TokenKind::Identifier => {
+                if ctx.idents.contains(&t.value) {
+                    let symbol = ctx.lookup.get(&t.value).unwrap_or_else(|| {
+                        panic!("`{0}` is in scope => `{0}` is in nametable", t.value)
+                    });
+                    body.push(Op::CallFn(*symbol));
+                } else {
+                    return Err(SyntaxError::UnknownIdentifier {
+                        identifier: t.value,
+                        location: t.location,
+                    });
+                }
+            }
         }
     }
     Ok(body)
 }
 
-fn parse_fn<'lex, 'src>(lexer: &'lex mut Lexer<'src>) -> Result<Func<'src>, SyntaxError<'src>> {
+fn parse_fn<'lex, 'src>(
+    lexer: &'lex mut Lexer<'src>,
+    ctx: &mut Context<'src>,
+) -> Result<Func<'src>, SyntaxError<'src>> {
     let t = lexer.expect_next(TokenKind::Identifier)?;
     let ident = t.value;
+    ctx.insert_ident(ident);
     let _ = lexer.expect_next(TokenKind::Keyword(Keyword::In))?;
 
-    let body = parse_block(lexer)?;
+    let body = parse_block(lexer, ctx)?;
     Ok(Func { ident, body })
 }

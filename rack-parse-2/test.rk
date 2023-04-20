@@ -1,3 +1,5 @@
+fn foo in 0b10 print end
+
 fn main in
-  1 0x1a + print
+  1 0x1a + print foo
 end
