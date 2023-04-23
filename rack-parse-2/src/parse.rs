@@ -7,7 +7,7 @@ use thiserror::Error;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Op {
     PushInt(u64),
-    //PushStrPtr(usize),
+    PushStrPtr(usize),
     Plus,
     Minus,
     DivMod,
@@ -70,6 +70,8 @@ pub struct Context<'src> {
     lookup: HashMap<&'src str, usize>,
     /// The idents that are currently in scope.
     idents: Vec<&'src str>,
+    /// String literals referencing directly into the source. Escape sequences handled by codegen.
+    strings: Vec<&'src str>,
 }
 
 impl<'src> Context<'src> {
@@ -151,6 +153,19 @@ fn parse_block<'src>(
                         location: t.location,
                     });
                 }
+            }
+            TokenKind::String => {
+                // Small optimisation: if an equal string already exists as a literal then we don't
+                // need to put it in the table twice.
+                let index = ctx
+                    .strings
+                    .iter()
+                    .position(|s| s == &t.value)
+                    .unwrap_or(ctx.strings.len());
+                if index == ctx.strings.len() {
+                    ctx.strings.push(&t.value);
+                }
+                body.push(Op::PushStrPtr(index));
             }
         }
     }

@@ -30,6 +30,7 @@ pub enum TokenKind {
     Keyword(Keyword),
     Int(u64),
     Identifier,
+    String,
 }
 
 impl fmt::Display for TokenKind {
@@ -38,6 +39,7 @@ impl fmt::Display for TokenKind {
             Self::Keyword(kw) => write!(f, "keyword {kw}"),
             Self::Int(_) => write!(f, "int"),
             Self::Identifier => write!(f, "identifier"),
+            Self::String => write!(f, "string literal"),
         }
     }
 }
@@ -202,8 +204,20 @@ impl<'src> Iterator for Lexer<'src> {
     fn next(&mut self) -> Option<Self::Item> {
         self.trim_left();
 
+        let mut string_literal = false;
+
         let token_begin = self.cursor;
         let mut next_c = self.content.chars().nth(self.cursor)?;
+        if next_c == '"' {
+            string_literal = true;
+            self.cursor = self
+                .content
+                .chars()
+                .skip(self.cursor + 1)
+                .position(|c| c == '"')?
+                + 1
+                + self.cursor;
+        }
         if is_separator(next_c) {
             self.cursor += 1;
         } else {
@@ -215,7 +229,9 @@ impl<'src> Iterator for Lexer<'src> {
 
         // TODO: this may need to use bytes length instead of chars length.
         let value = &self.content[token_begin..self.cursor];
-        let kind = if let Ok(keyword) = Keyword::from_str(value) {
+        let kind = if string_literal {
+            TokenKind::String
+        } else if let Ok(keyword) = Keyword::from_str(value) {
             TokenKind::Keyword(keyword)
         } else if let Ok(num) = parse_int(value) {
             TokenKind::Int(num)
