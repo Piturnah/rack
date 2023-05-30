@@ -54,6 +54,11 @@ pub enum SyntaxError<'src> {
         identifier: &'src str,
         location: Location<'src>,
     },
+    #[error("{location}: {message}")]
+    Generic {
+        location: Location<'src>,
+        message: &'static str,
+    },
 }
 
 #[derive(Debug)]
@@ -166,6 +171,24 @@ fn parse_block<'src>(
                     ctx.strings.push(&t.value);
                 }
                 body.push(Op::PushStrPtr(index));
+            }
+            TokenKind::Char => {
+                // For now, we are not supporting escapes in chars. This is a priority to support
+                // once the new lexer/parser is merged into main.
+                let value = t
+                    .value
+                    .strip_prefix('\'')
+                    .expect("char literal only parsed with opening `'`")
+                    .strip_suffix('\'')
+                    .expect("char literal only parsed with closing `'`");
+                if value.chars().count() != 1 {
+                    return Err(SyntaxError::Generic{
+                        location: t.location,
+                        message: "all character literals should have a length of 1. Did you mean to use `\"`?"
+                    });
+                }
+                let value = value.chars().next().expect("we just asserted count == 1") as u64;
+                body.push(Op::PushInt(value));
             }
         }
     }

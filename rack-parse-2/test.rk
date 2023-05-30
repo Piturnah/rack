@@ -4,4 +4,5 @@ fn main in
   1 0x1a + print foo
   "string literal" puts
   "1" "1"
+  'a' 'b'
 end
