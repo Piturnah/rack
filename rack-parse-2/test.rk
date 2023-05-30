@@ -1,8 +1,16 @@
 fn foo in 0b10 print end
-
 fn main in
   1 0x1a + print foo
   "string literal" puts
   "1" "1"
-  'a' 'b'
+  'a' 'b' = if
+    "do some stuff"
+    "do some more stuff"
+  end
+end
+
+fn foo in
+  while 10 100 != do
+    "foo"
+  end
 end

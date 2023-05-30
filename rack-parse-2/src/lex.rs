@@ -87,6 +87,9 @@ pub enum Keyword {
     DivMod,
     Div,
     Mod,
+    If,
+    While,
+    Do,
 }
 
 #[derive(Debug)]
@@ -144,6 +147,9 @@ keyword_str! {
     "divmod" => DivMod,
     "/" => Div,
     "%" => Mod,
+    "if" => If,
+    "while" => While,
+    "do" => Do,
 }
 
 #[derive(Debug, PartialEq, Eq)]

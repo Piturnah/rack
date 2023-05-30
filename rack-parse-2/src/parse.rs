@@ -23,8 +23,8 @@ pub enum Op {
     Or,
     And,
     ReadByte,
-    //If(Option<usize>),
-    //While(Option<Box<Op>>),
+    If(Vec<Op>),
+    While { condn: Vec<Op>, body: Vec<Op> },
     Print,
     CallFn(usize),
     //Ret(usize),        // the number of stack frames to drop
@@ -52,6 +52,11 @@ pub enum SyntaxError<'src> {
     #[error("{location}: `{identifier}` is an unknown name in the current context")]
     UnknownIdentifier {
         identifier: &'src str,
+        location: Location<'src>,
+    },
+    #[error("{location}: `{kw}` does not make sense in the current context")]
+    UnexpectedKeyword {
+        kw: Keyword,
         location: Location<'src>,
     },
     #[error("{location}: {message}")]
@@ -107,6 +112,7 @@ pub fn parse_tokens<'src>(lexer: &mut Lexer<'src>) -> Result<Vec<Func<'src>>, Sy
 fn parse_block<'src>(
     lexer: &mut Lexer<'src>,
     ctx: &mut Context<'src>,
+    terminator: Keyword,
 ) -> Result<Vec<Op>, SyntaxError<'src>> {
     // TODO: replace all of these unwraps and panics with error handling.
     let mut body = Vec::new();
@@ -115,38 +121,72 @@ fn parse_block<'src>(
 
         match t.kind {
             TokenKind::Int(num) => body.push(Op::PushInt(num)),
-            TokenKind::Keyword(kw) => match kw {
-                Keyword::End => break,
-                Keyword::Plus => body.push(Op::Plus),
-                Keyword::Minus => body.push(Op::Minus),
-                Keyword::Print => body.push(Op::Print),
-                Keyword::Dup => body.push(Op::Dup),
-                Keyword::Drop => body.push(Op::Drop),
-                Keyword::Swap => body.push(Op::Swap),
-                Keyword::Over => body.push(Op::Over),
-                Keyword::Equals => body.push(Op::Equals),
-                Keyword::Neq => body.push(Op::Neq),
-                Keyword::Not => body.push(Op::Not),
-                Keyword::GreaterThan => body.push(Op::GreaterThan),
-                Keyword::LessThan => body.push(Op::LessThan),
-                Keyword::Or => body.push(Op::Or),
-                Keyword::And => body.push(Op::And),
-                Keyword::ReadByte => body.push(Op::ReadByte),
-                Keyword::Puts => body.push(Op::Puts),
-                Keyword::DivMod => body.push(Op::DivMod),
-                Keyword::Div => {
-                    body.push(Op::DivMod);
-                    body.push(Op::Drop);
+            TokenKind::Keyword(kw) => {
+                if kw == terminator {
+                    break;
                 }
-                Keyword::Mod => {
-                    body.push(Op::DivMod);
-                    body.push(Op::Swap);
-                    body.push(Op::Drop);
+                match kw {
+                    Keyword::Plus => body.push(Op::Plus),
+                    Keyword::Minus => body.push(Op::Minus),
+                    Keyword::Print => body.push(Op::Print),
+                    Keyword::Dup => body.push(Op::Dup),
+                    Keyword::Drop => body.push(Op::Drop),
+                    Keyword::Swap => body.push(Op::Swap),
+                    Keyword::Over => body.push(Op::Over),
+                    Keyword::Equals => body.push(Op::Equals),
+                    Keyword::Neq => body.push(Op::Neq),
+                    Keyword::Not => body.push(Op::Not),
+                    Keyword::GreaterThan => body.push(Op::GreaterThan),
+                    Keyword::LessThan => body.push(Op::LessThan),
+                    Keyword::Or => body.push(Op::Or),
+                    Keyword::And => body.push(Op::And),
+                    Keyword::ReadByte => body.push(Op::ReadByte),
+                    Keyword::Puts => body.push(Op::Puts),
+                    Keyword::DivMod => body.push(Op::DivMod),
+                    Keyword::Div => {
+                        body.push(Op::DivMod);
+                        body.push(Op::Drop);
+                    }
+                    Keyword::Mod => {
+                        body.push(Op::DivMod);
+                        body.push(Op::Swap);
+                        body.push(Op::Drop);
+                    }
+                    Keyword::Fn => {
+                        return Err(SyntaxError::Generic {
+                            location: t.location,
+                            message: "no function definitions outside of top-level",
+                        })
+                    }
+                    Keyword::In => {
+                        return Err(SyntaxError::UnexpectedKeyword {
+                            location: t.location,
+                            kw,
+                        })
+                    }
+                    Keyword::If => {
+                        body.push(Op::If(parse_block(lexer, ctx, Keyword::End)?));
+                    }
+                    Keyword::While => {
+                        let condn = parse_block(lexer, ctx, Keyword::Do)?;
+                        let loop_body = parse_block(lexer, ctx, Keyword::End)?;
+                        body.push(Op::While {
+                            condn,
+                            body: loop_body,
+                        });
+                    }
+                    Keyword::Do | Keyword::End => {
+                        return Err(SyntaxError::UnexpectedKeyword {
+                            kw,
+                            location: t.location,
+                        })
+                    }
                 }
-                Keyword::Fn => panic!("no function definitions outside of top-level"),
-                Keyword::In => panic!(),
-            },
+            }
             TokenKind::Identifier => {
+                // FIXME: There is a bug here: if the ident with the same value appears somewhere
+                // earlier in the parsing, but outside of this scope, it will be discovered first
+                // by `contains`.
                 if ctx.idents.contains(&t.value) {
                     let symbol = ctx.lookup.get(&t.value).unwrap_or_else(|| {
                         panic!("`{0}` is in scope => `{0}` is in nametable", t.value)
@@ -204,6 +244,6 @@ fn parse_fn<'src>(
     ctx.insert_ident(ident);
     let _ = lexer.expect_next(TokenKind::Keyword(Keyword::In))?;
 
-    let body = parse_block(lexer, ctx)?;
+    let body = parse_block(lexer, ctx, Keyword::End)?;
     Ok(Func { ident, body })
 }
