@@ -2,6 +2,12 @@ fn foo in 0b10 print end
 fn main in
   1 0x1a + print foo
   "string literal" puts
+  let a b in = end
+  peek a b c in end
+  let a b in 
+  a b
+    peek b c in c b a end 
+  end
   "1" "1"
   'a' 'b' = if
     "do some stuff"

@@ -63,7 +63,7 @@ impl<'f> fmt::Display for Location<'f> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Keyword {
     Fn,
     In,
@@ -90,6 +90,8 @@ pub enum Keyword {
     If,
     While,
     Do,
+    Let,
+    Peek,
 }
 
 #[derive(Debug)]
@@ -150,6 +152,8 @@ keyword_str! {
     "if" => If,
     "while" => While,
     "do" => Do,
+    "let" => Let,
+    "peek" => Peek,
 }
 
 #[derive(Debug, PartialEq, Eq)]

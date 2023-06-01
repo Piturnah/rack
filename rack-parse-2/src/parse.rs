@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::lex::{Keyword, Lexer, Location, TokenKind};
+use crate::lex::{Keyword, Lexer, Location, Token, TokenKind};
 
 use thiserror::Error;
 
@@ -24,14 +24,24 @@ pub enum Op {
     And,
     ReadByte,
     If(Vec<Op>),
-    While { condn: Vec<Op>, body: Vec<Op> },
+    While {
+        condn: Vec<Op>,
+        body: Vec<Op>,
+    },
     Print,
     CallFn(usize),
+    // We just copy the bound values to the return stack, so the only info needed by codegen is
+    // actually just the number of bindings (`count`).
+    Bind {
+        count: usize,
+        peek: bool,
+        body: Vec<Op>,
+    },
+    // As per the previous comment, we can just use the index from the top of the stack of the
+    // binding we want.
+    PushBind(usize),
     //Ret(usize),        // the number of stack frames to drop
-    Puts, // Later move to stdlib?
-          //Bind(usize, bool), // (number of variables to bind, are we peeking)
-          //PushBind(usize),   // index of binding to push
-          //Unbind(usize),
+    Puts,
 }
 
 #[derive(Error, Debug)]
@@ -82,6 +92,7 @@ pub struct Context<'src> {
     idents: Vec<&'src str>,
     /// String literals referencing directly into the source. Escape sequences handled by codegen.
     strings: Vec<&'src str>,
+    bindings: Vec<&'src str>,
 }
 
 impl<'src> Context<'src> {
@@ -114,7 +125,6 @@ fn parse_block<'src>(
     ctx: &mut Context<'src>,
     terminator: Keyword,
 ) -> Result<Vec<Op>, SyntaxError<'src>> {
-    // TODO: replace all of these unwraps and panics with error handling.
     let mut body = Vec::new();
     loop {
         let t = lexer.next().ok_or(SyntaxError::Eof(lexer.location()))?;
@@ -175,6 +185,37 @@ fn parse_block<'src>(
                             body: loop_body,
                         });
                     }
+                    Keyword::Let | Keyword::Peek => {
+                        let bindings_count = ctx.bindings.len();
+                        let mut count = 0;
+                        loop {
+                            let next_t = lexer
+                                .next()
+                                .ok_or_else(|| SyntaxError::Eof(lexer.location()))?;
+                            match next_t.kind {
+                                TokenKind::Identifier => {
+                                    ctx.bindings.push(next_t.value);
+                                    count += 1;
+                                }
+                                TokenKind::Keyword(Keyword::In) => break,
+                                found => {
+                                    return Err(SyntaxError::UnexpectedToken {
+                                        expected: TokenKind::Identifier,
+                                        location: next_t.location,
+                                        found,
+                                    })
+                                }
+                            }
+                        }
+                        body.push(Op::Bind {
+                            count,
+                            peek: matches!(t.kind, TokenKind::Keyword(Keyword::Peek)),
+                            body: parse_block(lexer, ctx, Keyword::End)?,
+                        });
+                        // We can safely remove all the new bindings from ctx as the scope has
+                        // ended.
+                        ctx.bindings.drain(bindings_count..);
+                    }
                     Keyword::Do | Keyword::End => {
                         return Err(SyntaxError::UnexpectedKeyword {
                             kw,
@@ -192,6 +233,8 @@ fn parse_block<'src>(
                         panic!("`{0}` is in scope => `{0}` is in nametable", t.value)
                     });
                     body.push(Op::CallFn(*symbol));
+                } else if let Some(index) = ctx.bindings.iter().rev().position(|b| *b == t.value) {
+                    body.push(Op::PushBind(index));
                 } else {
                     return Err(SyntaxError::UnknownIdentifier {
                         identifier: t.value,
