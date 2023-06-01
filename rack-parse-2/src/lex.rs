@@ -93,6 +93,8 @@ pub enum Keyword {
     Let,
     Peek,
     Ret,
+    True,
+    False,
 }
 
 #[derive(Debug)]
@@ -156,6 +158,8 @@ keyword_str! {
     "let" => Let,
     "peek" => Peek,
     "ret" => Ret,
+    "true" => True,
+    "false" => False,
 }
 
 #[derive(Debug, PartialEq, Eq)]

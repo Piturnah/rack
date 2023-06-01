@@ -144,6 +144,8 @@ fn parse_block<'src>(
                     Keyword::Drop => body.push(Op::Drop),
                     Keyword::Swap => body.push(Op::Swap),
                     Keyword::Over => body.push(Op::Over),
+                    Keyword::True => body.push(Op::PushInt(1)),
+                    Keyword::False => body.push(Op::PushInt(0)),
                     Keyword::Equals => body.push(Op::Equals),
                     Keyword::Neq => body.push(Op::Neq),
                     Keyword::Not => body.push(Op::Not),
