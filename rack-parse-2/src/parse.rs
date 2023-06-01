@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::lex::{Keyword, Lexer, Location, Token, TokenKind};
+use crate::lex::{Keyword, Lexer, Location, TokenKind};
 
 use thiserror::Error;
 
@@ -40,7 +40,8 @@ pub enum Op {
     // As per the previous comment, we can just use the index from the top of the stack of the
     // binding we want.
     PushBind(usize),
-    //Ret(usize),        // the number of stack frames to drop
+    // We hold the number of additional stack frames to drop (due to let/peek bindings).
+    Ret(usize),
     Puts,
 }
 
@@ -216,6 +217,7 @@ fn parse_block<'src>(
                         // ended.
                         ctx.bindings.drain(bindings_count..);
                     }
+                    Keyword::Ret => body.push(Op::Ret(ctx.bindings.len())),
                     Keyword::Do | Keyword::End => {
                         return Err(SyntaxError::UnexpectedKeyword {
                             kw,
