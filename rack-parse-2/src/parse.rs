@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::lex::{Keyword, Lexer, Location, TokenKind};
 
@@ -92,7 +92,7 @@ pub struct Context<'src> {
     /// The function identifiers that are currently in scope.
     func_idents: Vec<&'src str>,
     /// String literals referencing directly into the source. Escape sequences handled by codegen.
-    strings: Vec<&'src str>,
+    strings: Vec<Cow<'src, str>>,
     bindings: Vec<&'src str>,
 }
 
@@ -245,16 +245,40 @@ fn parse_block<'src>(
                 }
             }
             TokenKind::String => {
+                // Clean the strings - involves stripping the delimiting " and escaping \s.
+                // Must be done now so that we have an accurate length for `Op::PushInt`.
+                let value = t
+                    .value
+                    .strip_prefix("\"")
+                    .expect("string literal only lexed with opening `\"`")
+                    .strip_suffix("\"")
+                    .expect("string literal only lexed with closed `\"`");
+
+                let value = if t.value.contains('\\') {
+                    Cow::Owned(
+                        value
+                            .replace("\\n", "\n")
+                            .replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("\\0", "\0"),
+                    )
+                } else {
+                    Cow::Borrowed(value)
+                };
+                let len = value.len();
+
                 // Small optimisation: if an equal string already exists as a literal then we don't
                 // need to put it in the table twice.
                 let index = ctx
                     .strings
                     .iter()
-                    .position(|s| s == &t.value)
+                    .position(|s| *s == value)
                     .unwrap_or(ctx.strings.len());
+
                 if index == ctx.strings.len() {
-                    ctx.strings.push(&t.value);
+                    ctx.strings.push(value);
                 }
+                body.push(Op::PushInt(len as u64));
                 body.push(Op::PushStrPtr(index));
             }
             TokenKind::Char => {
