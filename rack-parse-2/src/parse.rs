@@ -88,17 +88,17 @@ pub struct Func<'src> {
 pub struct Context<'src> {
     /// Nametable.
     lookup: HashMap<&'src str, usize>,
-    /// The idents that are currently in scope.
-    idents: Vec<&'src str>,
+    /// The function identifiers that are currently in scope.
+    func_idents: Vec<&'src str>,
     /// String literals referencing directly into the source. Escape sequences handled by codegen.
     strings: Vec<&'src str>,
     bindings: Vec<&'src str>,
 }
 
 impl<'src> Context<'src> {
-    fn insert_ident(&mut self, ident: &'src str) {
+    fn insert_func_ident(&mut self, ident: &'src str) {
         self.lookup.insert(ident, self.lookup.len());
-        self.idents.push(ident);
+        self.func_idents.push(ident);
     }
 }
 
@@ -228,7 +228,7 @@ fn parse_block<'src>(
                 // FIXME: There is a bug here: if the ident with the same value appears somewhere
                 // earlier in the parsing, but outside of this scope, it will be discovered first
                 // by `contains`.
-                if ctx.idents.contains(&t.value) {
+                if ctx.func_idents.contains(&t.value) {
                     let symbol = ctx.lookup.get(&t.value).unwrap_or_else(|| {
                         panic!("`{0}` is in scope => `{0}` is in nametable", t.value)
                     });
@@ -284,7 +284,7 @@ fn parse_fn<'src>(
 ) -> Result<Func<'src>, SyntaxError<'src>> {
     let t = lexer.expect_next(TokenKind::Identifier)?;
     let ident = t.value;
-    ctx.insert_ident(ident);
+    ctx.insert_func_ident(ident);
     let _ = lexer.expect_next(TokenKind::Keyword(Keyword::In))?;
 
     let body = parse_block(lexer, ctx, Keyword::End)?;
