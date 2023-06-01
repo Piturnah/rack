@@ -1,7 +1,6 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 
 use clap::Parser;
-use rackc::Program;
 use std::{
     error::Error,
     fmt, fs,
@@ -9,6 +8,15 @@ use std::{
     process::{self, Stdio},
     str::FromStr,
 };
+
+pub use crate::{
+    lex::Lexer,
+    parse::{parse_tokens, Func, Op, Program},
+};
+
+mod codegen;
+mod lex;
+mod parse;
 
 #[allow(non_camel_case_types)]
 enum Target {
@@ -82,7 +90,7 @@ struct Config {
     quiet: bool,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let config = Config::parse();
 
     let source_f = &config.file;
@@ -91,7 +99,8 @@ fn main() {
         process::exit(1);
     };
 
-    let program = Program::parse(&source, &config.file);
+    let mut lexer = Lexer::new(&source, Some(source_f));
+    let program = parse::parse_tokens(&mut lexer)?;
 
     // Determine output path of compiled program
     let default_path = &config.out.clone().unwrap_or_else(|| {
@@ -115,8 +124,9 @@ fn main() {
                 println!("[INFO] Generating `{asm_path}`");
             }
 
-            let outbuf = program.generate_fasm_x86_64_linux();
-            fs::write(&asm_path, outbuf).expect("Unable to write to out.asm");
+            let outbuf = codegen::fasm_x86_64_linux::generate(program)?;
+            fs::write(&asm_path, outbuf)
+                .unwrap_or_else(|_| panic!("failed to write to {asm_path}"));
 
             run_command(&format!("fasm {asm_path}"), &config, !config.quiet);
 
@@ -129,6 +139,8 @@ fn main() {
             if config.run {
                 run_command(&output_path, &config, true);
             }
+
+            Ok(())
         }
         Target::X86_64_FASM => {
             let output_path = output_path
@@ -138,9 +150,10 @@ fn main() {
             if !config.quiet {
                 println!("[INFO] Generating `{output_path}`");
             }
-            let outbuf = program.generate_fasm_x86_64_linux();
+            let outbuf = codegen::fasm_x86_64_linux::generate(program)?;
             fs::write(&output_path, outbuf)
                 .unwrap_or_else(|_| panic!("failed to write to {output_path}"));
+            Ok(())
         }
         Target::Mos6502_Nesulator => {
             let output_path = output_path
@@ -151,13 +164,15 @@ fn main() {
                 println!("[INFO] Generating `{output_path}`");
             }
 
-            let outbuf = program.generate_code_mos_6502_nesulator();
+            let outbuf = codegen::mos_6502_nesulator::generate(program);
             fs::write(&output_path, outbuf)
                 .unwrap_or_else(|_| panic!("Unable to write to {output_path}"));
 
             if !config.quiet {
                 println!("[INFO] Wrote {} bytes", outbuf.len());
             }
+
+            Ok(())
         }
     }
 }
