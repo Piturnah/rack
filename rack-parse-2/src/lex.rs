@@ -180,6 +180,14 @@ impl<'src> Lexer<'src> {
 
     fn trim_left(&mut self) {
         loop {
+            if self.content.len() >= self.cursor + 2
+                && &self.content[self.cursor..=self.cursor + 1] == "//"
+            {
+                while !matches!(self.content.chars().nth(self.cursor), Some('\n') | None) {
+                    self.cursor += 1;
+                }
+            }
+
             match self.content.chars().nth(self.cursor) {
                 Some(c) if c.is_whitespace() => {
                     self.cursor += 1;
@@ -216,6 +224,9 @@ impl<'src> Lexer<'src> {
 impl<'src> Iterator for Lexer<'src> {
     type Item = Token<'src>;
     fn next(&mut self) -> Option<Self::Item> {
+        // Note that comments and the text that follows until the newline is actually dealt with by
+        // the `trim_left` method. Therefore, generally speaking you must have some amount of
+        // whitespace between a token and a `//` for it to be parsed as a comment.
         self.trim_left();
 
         let mut string_literal = false;
@@ -293,7 +304,7 @@ fn parse_int(s: &str) -> Result<u64, ParseIntError> {
 
 /// A separator is a char token that separates tokens.
 fn is_separator(c: char) -> bool {
-    ['+', '-', '*', '-', '/'].contains(&c)
+    ['+', '-', '*', '-'].contains(&c)
 }
 
 #[cfg(test)]

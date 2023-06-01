@@ -1,6 +1,7 @@
 fn foo in 0b10 print end
 fn main in
-  1 0x1a + print foo
+  // comments should be ignored
+  1 0x1a + print foo   // even mid line
   "string literal" puts
   let a b in = end
   peek a b c in end
