@@ -9,9 +9,6 @@ edition = "2021"
 clap = { version = "3", features = ["derive"]}
 thiserror = "1.0.40"
 
-[dev-dependencies]
-text-diff = "0.4.0"
-
 [[test]]
 name = "integration"
 harness = false

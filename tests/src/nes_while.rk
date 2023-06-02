@@ -1,9 +1,0 @@
-// Sum the numbers 1-10
-// Should result in 55 (0x37) on top of stack
-
-0 0 while
-  1 + dup 11 !=
-do
-  dup over + swap
-end
-drop

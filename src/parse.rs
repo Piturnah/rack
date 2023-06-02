@@ -45,7 +45,7 @@ pub enum Op {
     Puts,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum SyntaxError<'src> {
     #[error("unexpected end of input at {0}")]
     Eof(Location<'src>),
@@ -92,9 +92,9 @@ pub struct Func<'src> {
 #[derive(Debug, Default)]
 pub struct Context<'src> {
     /// Nametable.
-    lookup: HashMap<&'src str, usize>,
+    pub lookup: HashMap<&'src str, usize>,
     /// The function identifiers that are currently in scope.
-    func_idents: Vec<&'src str>,
+    pub func_idents: Vec<&'src str>,
     /// String literals referencing directly into the source. Escape sequences handled by codegen.
     pub strings: Vec<Cow<'src, str>>,
     bindings: Vec<&'src str>,
@@ -319,6 +319,7 @@ fn parse_fn<'src>(
     ctx.insert_func_ident(ident);
     let _ = lexer.expect_next(TokenKind::Keyword(Keyword::In))?;
 
-    let body = parse_block(lexer, ctx, Keyword::End)?;
+    let mut body = parse_block(lexer, ctx, Keyword::End)?;
+    body.push(Op::Ret(0));
     Ok(Func { ident, body })
 }

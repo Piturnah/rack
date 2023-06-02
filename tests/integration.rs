@@ -45,11 +45,13 @@ fn run_test(file: DirEntry, mode: Mode) {
         Mode::Compare => {
             let expected = fs::read(output_path).unwrap();
             if output != expected {
-                text_diff::print_diff(
-                    &String::from_utf8_lossy(&expected),
-                    &String::from_utf8_lossy(&output),
-                    "",
+                println!("--------------EXPECTED--------------");
+                println!(
+                    "{expected}",
+                    expected = std::str::from_utf8(&expected).unwrap()
                 );
+                println!("---------------ACTUAL---------------");
+                println!("{output}", output = std::str::from_utf8(&output).unwrap());
                 panic!(
                     "program `{}` did not match its expected output!",
                     file.file_name().to_string_lossy()
@@ -69,6 +71,7 @@ fn main() {
     } else {
         Mode::Compare
     };
+
     read_dir("tests/src")
         .unwrap()
         .map(|file| thread::spawn(move || run_test(file.unwrap(), mode)))

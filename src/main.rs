@@ -11,7 +11,7 @@ use std::{
 
 pub use crate::{
     lex::Lexer,
-    parse::{parse_tokens, Func, Op, Program},
+    parse::{parse_tokens, Context, Func, Op, Program},
 };
 
 mod codegen;
@@ -100,7 +100,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mut lexer = Lexer::new(&source, Some(source_f));
-    let program = parse::parse_tokens(&mut lexer)?;
+    let program = parse::parse_tokens(&mut lexer).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        process::exit(1);
+    });
+    // TODO: do this properly.
+    if program.funcs.iter().find(|f| f.ident == "main").is_none() {
+        eprintln!("[ERROR] No entry point `main` found.");
+        process::exit(1);
+    }
 
     // Determine output path of compiled program
     let default_path = &config.out.clone().unwrap_or_else(|| {

@@ -1,11 +1,16 @@
 use std::fmt::Write;
 
-use crate::{Func, Op, Program};
+use crate::{Context, Op, Program};
 
 pub mod fasm_x86_64_linux {
     use super::*;
 
-    fn write_op(op: &Op, count_ops: &mut usize, buffer: &mut String) -> std::fmt::Result {
+    fn write_op(
+        op: &Op,
+        count_ops: &mut usize,
+        buffer: &mut String,
+        ctx: &Context,
+    ) -> std::fmt::Result {
         match op {
             Op::CallFn(index) => write!(
                 buffer,
@@ -13,12 +18,19 @@ pub mod fasm_x86_64_linux {
 \tsub\trax, 8
 \tmov\t[ret_stack_rsp], rax
 \tmov\tqword [rax], RET{count_ops}
-\tjmp\tFN{index}
+\tjmp\tfn_{func}
 RET{count_ops}:
 \tmov\trax, [ret_stack_rsp]
 \tadd\trax, 8
 \tmov\t[ret_stack_rsp], rax
-"
+",
+                // TODO: this nonsense obviously needs to be refactored. But I don't care right now.
+                func = ctx
+                    .lookup
+                    .iter()
+                    .find(|(_, v)| *v == index)
+                    .expect("the index was taken from the same context lookup")
+                    .0
             )?,
             // Small optimisation for the 0 case.
             Op::Ret(0) => write!(
@@ -52,13 +64,13 @@ RET{count_ops}:
 \tmov\t[rax+{0}], rbx
 ",
                         i * 8
-                    );
+                    )?;
                 }
                 if !peek {
                     write!(buffer, "\tadd\trsp, {}\n", count * 8)?;
                 }
                 for op in body {
-                    write_op(op, count_ops, buffer)?;
+                    write_op(op, count_ops, buffer, ctx)?;
                 }
                 // Remove the bindings from the return stack.
                 write!(
@@ -110,8 +122,8 @@ RET{count_ops}:
 \tpush\trdx
 ",
             )?,
-            Op::Dup => write!(buffer, "\tpush\tqword [rsp]\t\t; Op::Dup",)?,
-            Op::Drop => write!(buffer, "\tadd\trsp, 8\t\t\t; Op::Drop",)?,
+            Op::Dup => write!(buffer, "\tpush\tqword [rsp]\t\t; Op::Dup\n",)?,
+            Op::Drop => write!(buffer, "\tadd\trsp, 8\t\t\t; Op::Drop\n",)?,
             Op::Swap => write!(
                 buffer,
                 "\tpop\trax\t\t\t; Op::Swap
@@ -269,17 +281,17 @@ J{1}:
 "
                 )?;
                 for op in ops {
-                    write_op(op, count_ops, buffer)?;
+                    write_op(op, count_ops, buffer, ctx)?;
                 }
-                write!(buffer, "F{jump_to}")?;
+                write!(buffer, "F{jump_to}:\n")?;
             }
             Op::While { condn, body } => {
                 let condn_jump = *count_ops;
                 let end_jump = *count_ops + 1;
                 *count_ops += 2;
-                write!(buffer, "F{condn_jump}:\t\t\t\t\t; Op::While")?;
+                write!(buffer, "F{condn_jump}:\t\t\t\t\t; Op::While\n")?;
                 for op in condn {
-                    write_op(op, count_ops, buffer)?;
+                    write_op(op, count_ops, buffer, ctx)?;
                 }
                 // Check the while condition and jump to end if not met.
                 write!(
@@ -290,9 +302,9 @@ J{1}:
 "
                 )?;
                 for op in body {
-                    write_op(op, count_ops, buffer)?;
+                    write_op(op, count_ops, buffer, ctx)?;
                 }
-                write!(buffer, "F{end_jump}:")?;
+                writeln!(buffer, "\tjmp F{condn_jump}\nF{end_jump}:")?;
             }
             Op::Print => write!(buffer, "\tpop\trdi\t\t\t; Op::Print\n\tcall\tprint\n")?,
             Op::Puts => write!(
@@ -356,9 +368,9 @@ segment readable executable
         let mut count_ops = 0;
 
         for func in program.funcs.iter() {
-            write!(outbuf, "fn_{}:", func.ident)?;
+            writeln!(outbuf, "fn_{}:", func.ident)?;
             for op in &func.body {
-                write_op(op, &mut count_ops, &mut outbuf);
+                write_op(op, &mut count_ops, &mut outbuf, &program.ctx)?;
             }
         }
 
@@ -396,103 +408,9 @@ ret_stack_end:
 
 pub mod mos_6502_nesulator {
     use super::*;
-    /// # Panics
-    ///
-    /// Will panic if trying to compile an operation that is not yet implemented.
+
     #[must_use]
-    pub fn generate(program: Program) -> [u8; 65536 - 0x4020] {
+    pub fn generate(_program: Program) -> [u8; 65536 - 0x4020] {
         todo!()
-        //const NOP: u8 = 0xea;
-        //const PHA: u8 = 0x48;
-        //const PLA: u8 = 0x68;
-        //const CLC: u8 = 0x18;
-        //const SEC: u8 = 0x38;
-        //const ADC_ZPG: u8 = 0x65;
-        //const SBC_ZPG: u8 = 0xe5;
-        //const LDA_IMM: u8 = 0xa9;
-        //const LDA_ZPG: u8 = 0xa5;
-        //const STA_ZPG: u8 = 0x85;
-        //const BNE: u8 = 0xd0;
-        //const CMP_IMM: u8 = 0xc9;
-        //const CMP_ZPG: u8 = 0xc5;
-
-        //let mut outbuf = vec![NOP; 65536 - 0x4020];
-        //outbuf[0xfffc - 0x4020] = 0x20;
-        //outbuf[0xfffd - 0x4020] = 0x40;
-
-        //let mut pc: usize = 0x00;
-
-        //let mut unclosed_ifs = Vec::new();
-        //let mut unclosed_whiles = Vec::new();
-
-        //for (loc, op) in self.program.into_iter().map(|tok| (tok.loc, tok.op)) {
-        //    let opcodes = match op {
-        //        Op::PushInt(val) => vec![LDA_IMM, val as u8, PHA],
-        //        Op::Plus => vec![PLA, STA_ZPG, 0x00, PLA, CLC, ADC_ZPG, 0x00, PHA],
-        //        Op::Minus => vec![PLA, STA_ZPG, 0x00, PLA, SEC, SBC_ZPG, 0x00, PHA],
-        //        Op::Drop => vec![PLA],
-        //        Op::Over => vec![
-        //            PLA, STA_ZPG, 0x00, PLA, STA_ZPG, 0x01, PLA, STA_ZPG, 0x02, LDA_ZPG, 0x01, PHA,
-        //            LDA_ZPG, 0x02, PHA, LDA_ZPG, 0x00, PHA,
-        //        ],
-        //        Op::Dup => vec![PLA, PHA, PHA],
-        //        Op::Neq => vec![
-        //            PLA, STA_ZPG, 0x00, PLA, CMP_ZPG, 0x00, BNE, 0x09, LDA_IMM, 0x00, PHA, LDA_IMM,
-        //            0x01, BNE, 0x05, LDA_IMM, 0x01, PHA,
-        //        ],
-        //        Op::Swap => vec![
-        //            PLA, STA_ZPG, 0x00, PLA, STA_ZPG, 0x01, LDA_ZPG, 0x00, PHA, LDA_ZPG, 0x01, PHA,
-        //        ],
-        //        Op::If(_) => {
-        //            unclosed_ifs.push(pc + 3);
-        //            vec![PLA, CMP_IMM, 0x01, BNE, 0x00]
-        //        }
-        //        Op::While(_) => {
-        //            unclosed_whiles.push(pc);
-        //            vec![]
-        //        }
-        //        Op::End(op) => match *op {
-        //            Op::If(_) => {
-        //                let branch_index = unclosed_ifs
-        //                    .pop()
-        //                    .expect("`end` has no opening keyword in codegen!");
-        //                outbuf[branch_index + 1] = (pc - branch_index) as i8 as u8;
-        //                vec![]
-        //            }
-        //            Op::While(_) => {
-        //                let branch_index = unclosed_ifs
-        //                    .pop()
-        //                    .expect("`end` has no opening keyword in codegen!");
-        //                outbuf[branch_index + 1] = (pc + 4 - branch_index) as i8 as u8;
-
-        //                let while_index = unclosed_whiles
-        //                    .pop()
-        //                    .expect("`endwhile` has no opening `while` in codegen!");
-
-        //                vec![
-        //                    LDA_IMM,
-        //                    0x01,
-        //                    BNE,
-        //                    (while_index.wrapping_sub(pc)) as i8 as u8,
-        //                ]
-        //            }
-        //            _ => todo!(),
-        //        },
-        //        op => {
-        //            eprintln!("{loc}: `{op:?}` not implemented in codegen!");
-        //            process::exit(1);
-        //        }
-        //    };
-        //    outbuf.splice(pc..pc + opcodes.len(), opcodes.iter().copied());
-        //    pc += opcodes.len();
-        //}
-
-        //outbuf.try_into().unwrap_or_else(|v: Vec<u8>| {
-        //    panic!(
-        //        "Expected Vec of length {} but it was {}",
-        //        65536 - 0x4020,
-        //        v.len()
-        //    )
-        //})
     }
 }

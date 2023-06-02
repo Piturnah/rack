@@ -25,7 +25,7 @@ impl<'src> Token<'src> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
     Keyword(Keyword),
     Int(u64),
@@ -46,7 +46,7 @@ impl fmt::Display for TokenKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Location<'f> {
     pub file: Option<&'f str>,
     pub pos: (usize, usize),
