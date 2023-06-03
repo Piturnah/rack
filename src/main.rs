@@ -1,4 +1,13 @@
 #![warn(clippy::pedantic, clippy::nursery)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::missing_errors_doc,
+    clippy::option_if_let_else,
+    clippy::missing_const_for_fn,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    clippy::explicit_iter_loop
+)]
 
 use clap::Parser;
 use std::{
@@ -105,7 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         process::exit(1);
     });
     // TODO: do this properly.
-    if program.funcs.iter().find(|f| f.ident == "main").is_none() {
+    if !program.funcs.iter().any(|f| f.ident == "main") {
         eprintln!("[ERROR] No entry point `main` found.");
         process::exit(1);
     }

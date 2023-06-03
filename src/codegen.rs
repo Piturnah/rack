@@ -1,3 +1,5 @@
+#![allow(clippy::wildcard_imports)]
+
 use std::fmt::Write;
 
 use crate::{Context, Op, Program};
@@ -5,6 +7,7 @@ use crate::{Context, Op, Program};
 pub mod fasm_x86_64_linux {
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
     fn write_op(
         op: &Op,
         count_ops: &mut usize,
@@ -67,7 +70,7 @@ RET{count_ops}:
                     )?;
                 }
                 if !peek {
-                    write!(buffer, "\tadd\trsp, {}\n", count * 8)?;
+                    writeln!(buffer, "\tadd\trsp, {}", count * 8)?;
                 }
                 for op in body {
                     write_op(op, count_ops, buffer, ctx)?;
@@ -90,12 +93,10 @@ RET{count_ops}:
 ",
                 index * 8
             )?,
-            Op::PushInt(val) => write!(buffer, "\tpush\t{0}\t\t\t; Op::PushInt({0})\n", val)?,
-            Op::PushStrPtr(index) => write!(
-                buffer,
-                "\tpush\tstr_{0}\t\t\t; Op::PushStrPtr({0})\n",
-                index
-            )?,
+            Op::PushInt(val) => writeln!(buffer, "\tpush\t{val}\t\t\t; Op::PushInt({val})")?,
+            Op::PushStrPtr(index) => {
+                writeln!(buffer, "\tpush\tstr_{index}\t\t\t; Op::PushStrPtr({index})")?
+            }
             Op::Plus => write!(
                 buffer,
                 "\tpop\trax\t\t\t; Op::Plus
@@ -122,8 +123,8 @@ RET{count_ops}:
 \tpush\trdx
 ",
             )?,
-            Op::Dup => write!(buffer, "\tpush\tqword [rsp]\t\t; Op::Dup\n",)?,
-            Op::Drop => write!(buffer, "\tadd\trsp, 8\t\t\t; Op::Drop\n",)?,
+            Op::Dup => writeln!(buffer, "\tpush\tqword [rsp]\t\t; Op::Dup",)?,
+            Op::Drop => writeln!(buffer, "\tadd\trsp, 8\t\t\t; Op::Drop",)?,
             Op::Swap => write!(
                 buffer,
                 "\tpop\trax\t\t\t; Op::Swap
@@ -283,13 +284,13 @@ J{1}:
                 for op in ops {
                     write_op(op, count_ops, buffer, ctx)?;
                 }
-                write!(buffer, "F{jump_to}:\n")?;
+                writeln!(buffer, "F{jump_to}:")?;
             }
             Op::While { condn, body } => {
                 let condn_jump = *count_ops;
                 let end_jump = *count_ops + 1;
                 *count_ops += 2;
-                write!(buffer, "F{condn_jump}:\t\t\t\t\t; Op::While\n")?;
+                writeln!(buffer, "F{condn_jump}:\t\t\t\t\t; Op::While")?;
                 for op in condn {
                     write_op(op, count_ops, buffer, ctx)?;
                 }
@@ -321,7 +322,6 @@ J{1}:
         Ok(())
     }
 
-    #[must_use]
     pub fn generate(program: Program) -> Result<String, std::fmt::Error> {
         let mut outbuf = String::from(
             "format ELF64 executable 3
@@ -394,7 +394,7 @@ segment readable
             for b in s.as_bytes() {
                 write!(&mut s_bytes, "{b},").unwrap();
             }
-            write!(outbuf, "str_{i}: db {}\n", s_bytes.trim_end_matches(','))?;
+            writeln!(outbuf, "str_{i}: db {}", s_bytes.trim_end_matches(','))?;
         }
 
         Ok(outbuf

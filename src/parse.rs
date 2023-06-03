@@ -125,6 +125,7 @@ pub fn parse_tokens<'src>(lexer: &mut Lexer<'src>) -> Result<Program<'src>, Synt
     Ok(Program { funcs, ctx })
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_block<'src>(
     lexer: &mut Lexer<'src>,
     ctx: &mut Context<'src>,
@@ -132,7 +133,9 @@ fn parse_block<'src>(
 ) -> Result<Vec<Op>, SyntaxError<'src>> {
     let mut body = Vec::new();
     loop {
-        let t = lexer.next().ok_or(SyntaxError::Eof(lexer.location()))?;
+        let t = lexer
+            .next()
+            .ok_or_else(|| SyntaxError::Eof(lexer.location()))?;
 
         match t.kind {
             TokenKind::Int(num) => body.push(Op::PushInt(num)),
@@ -255,9 +258,9 @@ fn parse_block<'src>(
                 // Must be done now so that we have an accurate length for `Op::PushInt`.
                 let value = t
                     .value
-                    .strip_prefix("\"")
+                    .strip_prefix('"')
                     .expect("string literal only lexed with opening `\"`")
-                    .strip_suffix("\"")
+                    .strip_suffix('"')
                     .expect("string literal only lexed with closed `\"`");
 
                 let value = if t.value.contains('\\') {
@@ -317,7 +320,7 @@ fn parse_fn<'src>(
     let t = lexer.expect_next(TokenKind::Identifier)?;
     let ident = t.value;
     ctx.insert_func_ident(ident);
-    let _ = lexer.expect_next(TokenKind::Keyword(Keyword::In))?;
+    lexer.expect_next(TokenKind::Keyword(Keyword::In))?;
 
     let mut body = parse_block(lexer, ctx, Keyword::End)?;
     body.push(Op::Ret(0));

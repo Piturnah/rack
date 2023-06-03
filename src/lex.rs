@@ -13,14 +13,14 @@ impl<'src> Token<'src> {
     /// Map the token to a Result of Self and a syntax error if the type of token isn't the same
     /// as `expected`.
     pub fn expect_kind(self, expected: TokenKind) -> Result<Self, SyntaxError<'src>> {
-        if self.kind != expected {
+        if self.kind == expected {
+            Ok(self)
+        } else {
             Err(SyntaxError::UnexpectedToken {
                 expected,
                 found: self.kind,
                 location: self.location,
             })
-        } else {
-            Ok(self)
         }
     }
 }
@@ -220,7 +220,7 @@ impl<'src> Lexer<'src> {
         'src: 'lex,
     {
         self.next()
-            .ok_or(SyntaxError::Eof(self.location()))?
+            .ok_or_else(|| SyntaxError::Eof(self.location()))?
             .expect_kind(expected)
     }
 }
