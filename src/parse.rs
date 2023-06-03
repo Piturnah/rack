@@ -95,7 +95,8 @@ pub struct Context<'src> {
     pub lookup: HashMap<&'src str, usize>,
     /// The function identifiers that are currently in scope.
     pub func_idents: Vec<&'src str>,
-    /// String literals referencing directly into the source. Escape sequences handled by codegen.
+    /// String literals referencing directly into the source, or in a heap allocation for where
+    /// escapes were used.
     pub strings: Vec<Cow<'src, str>>,
     bindings: Vec<&'src str>,
 }
