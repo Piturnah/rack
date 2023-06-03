@@ -17,7 +17,7 @@ pub mod fasm_x86_64_linux {
         match op {
             Op::CallFn(index) => write!(
                 buffer,
-                "\tmov\trax, [ret_stack_rsp]
+                "\tmov\trax, [ret_stack_rsp]\t; Op::CallFn({index})
 \tsub\trax, 8
 \tmov\t[ret_stack_rsp], rax
 \tmov\tqword [rax], RET{count_ops}
@@ -38,13 +38,13 @@ RET{count_ops}:
             // Small optimisation for the 0 case.
             Op::Ret(0) => write!(
                 buffer,
-                "\tmov\trax, qword [ret_stack_rsp]
+                "\tmov\trax, qword [ret_stack_rsp]\t; Op::Ret(0)
 \tjmp qword [rax]
 "
             )?,
             Op::Ret(count) => write!(
                 buffer,
-                "\tmov\trax, [ret_stack_rsp]
+                "\tmov\trax, [ret_stack_rsp]\t; Op::Ret({count})
 \tadd\trax, {}
 \tmov\tqword [ret_stack_rsp], rax
 \tjmp\tqword [rax]
@@ -54,7 +54,7 @@ RET{count_ops}:
             Op::Bind { count, peek, body } => {
                 write!(
                     buffer,
-                    "\tmov\trax, [ret_stack_rsp]
+                    "\tmov\trax, [ret_stack_rsp]\t; Op::Bind({count})
 \tsub\trax, {}
 \tmov\t[ret_stack_rsp], rax
 ",
