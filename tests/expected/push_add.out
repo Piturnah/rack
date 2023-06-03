@@ -1,0 +1,4 @@
+----STDOUT----
+
+----STDERR----
+[ERROR] No entry point `main` found.
