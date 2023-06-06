@@ -8,11 +8,11 @@ clap = { version = "3", features = ["derive"] }
 thiserror = "1.0.40"
 
 [dev-dependencies]
-test_macros = { path = "crates/test_macros" }
-test_utils = { path = "crates/test_utils" }
+test_macros = { path = "tests/crates/test_macros" }
+test_utils = { path = "tests/crates/test_utils" }
 
 [workspace]
-members = ["crates/test_utils", "crates/test_macros"]
+members = ["tests/crates/test_utils", "tests/crates/test_macros"]
 
 [[test]]
 name = "write"
