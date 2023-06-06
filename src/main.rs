@@ -200,16 +200,28 @@ fn run_command(cmd: &str, config: &Config, echo: bool) {
     }
     let mut cmd = cmd.split_whitespace();
 
-    if let Err(e) = process::Command::new(cmd.next().expect("No command provided"))
+    let out_pipe = if echo {
+        || Stdio::inherit()
+    } else {
+        || Stdio::null()
+    };
+
+    match process::Command::new(cmd.next().expect("No command provided"))
         .args(cmd.collect::<Vec<&str>>())
-        .stdout(if echo {
-            Stdio::inherit()
-        } else {
-            Stdio::null()
-        })
+        .stdout(out_pipe())
+        .stderr(out_pipe())
         .output()
     {
-        eprintln!("[ERROR] {e}");
-        process::exit(1);
-    };
+        Ok(output) => {
+            if let Some(code) = output.status.code() {
+                if code != 0 {
+                    process::exit(code)
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("[ERROR] {e}");
+            process::exit(1);
+        }
+    }
 }
