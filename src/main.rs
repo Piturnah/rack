@@ -200,12 +200,7 @@ fn run_command(cmd: &str, config: &Config, echo: bool) {
     }
     let mut cmd = cmd.split_whitespace();
 
-    let out_pipe = if echo {
-        || Stdio::inherit()
-    } else {
-        || Stdio::null()
-    };
-
+    let out_pipe = if echo { Stdio::inherit } else { Stdio::null };
     match process::Command::new(cmd.next().expect("No command provided"))
         .args(cmd.collect::<Vec<&str>>())
         .stdout(out_pipe())
