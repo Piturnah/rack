@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy, rustfmt
+        override: true
+        
+    - name: Install fasm
+      run: sudo apt-get update; sudo apt-get install --no-install-recommends fasm
+      
+    - name: Check
+      run: cargo check
+      
+    - name: Clippy
+      run: cargo clippy -- -D warnings
+      
+    - name: Format
+      run: cargo fmt --check
+      
+    - name: Test
+      run: cargo test
