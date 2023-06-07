@@ -95,7 +95,7 @@ RET{count_ops}:
             )?,
             Op::PushInt(val) => writeln!(buffer, "\tpush\t{val}\t\t\t; Op::PushInt({val})")?,
             Op::PushStrPtr(index) => {
-                writeln!(buffer, "\tpush\tstr_{index}\t\t\t; Op::PushStrPtr({index})")?
+                writeln!(buffer, "\tpush\tstr_{index}\t\t\t; Op::PushStrPtr({index})")?;
             }
             Op::Plus => write!(
                 buffer,
