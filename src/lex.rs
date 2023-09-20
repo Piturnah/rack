@@ -187,20 +187,27 @@ impl<'src> Lexer<'src> {
             if self.content.len() >= self.cursor + 2
                 && &self.content[self.cursor..=self.cursor + 1] == "//"
             {
-                while !matches!(self.content.chars().nth(self.cursor), Some('\n') | None) {
+                while self
+                    .content
+                    .as_bytes()
+                    .get(self.cursor)
+                    .map_or(false, |c| *c != b'\n')
+                {
                     self.cursor += 1;
                 }
             }
 
-            match self.content.chars().nth(self.cursor) {
-                Some(c) if c.is_whitespace() => {
-                    self.cursor += 1;
-                    if c == '\n' {
-                        self.line += 1;
-                        self.line_begin = self.cursor;
-                    }
+            let Some(c) = self.content.as_bytes().get(self.cursor) else {
+                break;
+            };
+            if c.is_ascii_whitespace() {
+                self.cursor += 1;
+                if *c == b'\n' {
+                    self.line += 1;
+                    self.line_begin = self.cursor;
                 }
-                _ => break,
+            } else {
+                break;
             }
         }
     }
