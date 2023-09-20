@@ -11,15 +11,32 @@ fn digits in
 end
 
 // int --
-fn show_digits in
-  "Number of digits: " puts
-  digits print
+fn putu in
+  dup digits
+  "0123456789" let x n _ str in
+    x 10 %
+    x while 10 / dup 0 > do
+      dup 10 % swap
+    end drop
+
+    n while 1 - dup 0 1 - != do
+      swap let i in
+        1 str i + puts
+      end
+    end
+  end
 end
+
+// int --
+fn show_digits in let n in
+  "digits(" puts n putu "): " puts
+  n digits print
+end end
 
 // --
 fn main in
-  8    show_digits 
-  13   show_digits 
+  8    show_digits
+  13   show_digits
   1234 show_digits
   67   show_digits
   999  show_digits
