@@ -202,7 +202,7 @@ fn run_command(cmd: &str, config: &Config, echo: bool) {
 
     let out_pipe = if echo { Stdio::inherit } else { Stdio::null };
     match process::Command::new(cmd.next().expect("No command provided"))
-        .args(cmd.collect::<Vec<&str>>())
+        .args(cmd)
         .stdout(out_pipe())
         .stderr(out_pipe())
         .output()
